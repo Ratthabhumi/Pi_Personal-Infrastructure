@@ -31,8 +31,8 @@ In modern Site Reliability Engineering (SRE), deploying application containers b
 | :---: | :--- | :--- | :--- | :---: | :---: |
 | **01** | **Infrastructure as Code Backbone**<br>Eliminate manual SSH setups; automate server OS bootstrapping, kernel optimizations, and Docker Engine provisioning. | • `00_bootstrap_server.yml`<br>• SSH hardened (Fail2ban/UFW)<br>• Kernel tuned for 24/7 reliability<br>• Docker Engine & Tailscale daemon config | **Ansible**<br>**Ubuntu 24.04**<br>**Make** | 1-2 Days | 🏆 **COMPLETED** |
 | **02** | **Edge Routing & Secure Ingress**<br>Eliminate memorized port numbers (8080/3000) and establish HTTPS wildcard certificates over internal Tailscale mesh. | • Traefik Reverse Proxy<br>• Tailscale MagicDNS binding<br>• Portainer/Dockge Container Management UI<br>• Secure Domain routing (e.g. `*.homelab.ts.net`) | **Docker Compose**<br>**Traefik v3**<br>**Tailscale DNS** | 1-2 Days | 🏆 **COMPLETED** |
-| **03** | **SRE Observability & Telemetry**<br>Implement Observability Driven Development (ODD). Ensure all metrics and logs are centralized before deploying application payloads. | • Prometheus / VictoriaMetrics Engine<br>• Grafana Live Dashboards<br>• Grafana Loki centralized system logging<br>• Uptime Kuma alerts to Telegram/Discord | **Prometheus**<br>**Grafana Loki**<br>**Alertmanager** | 2-3 Days | 🟡 **IN PROGRESS** |
-| **04** | **Autonomous Operations & AI Bots**<br>Build automated resiliency tools and scripts that self-monitor, backup infrastructure, and write docs automatically. | • Restic automated volume snapshots<br>• Python script to scan live containers and commit Markdown table updates directly to Git<br>• Automated Docker image updates via Watchtower / Renovate | **Python SDK**<br>**Restic**<br>**GitHub Actions / Git** | 3-5 Days | ⚪ *Planned* |
+| **03** | **SRE Observability & Telemetry**<br>Implement Observability Driven Development (ODD). Ensure all metrics and logs are centralized before deploying application payloads. | • Prometheus / VictoriaMetrics Engine<br>• Grafana Live Dashboards<br>• Grafana Loki centralized system logging<br>• Uptime Kuma alerts to Telegram/Discord | **Prometheus**<br>**Grafana Loki**<br>**Alertmanager** | 2-3 Days | 🏆 **COMPLETED** |
+| **04** | **Autonomous Operations & AI Bots**<br>Build automated resiliency tools and scripts that self-monitor, backup infrastructure, and write docs automatically. | • Restic automated volume snapshots<br>• Python script to scan live containers and commit Markdown table updates directly to Git<br>• Automated Docker image updates via Watchtower / Renovate | **Python SDK**<br>**Restic**<br>**GitHub Actions / Git** | 3-5 Days | 🟡 **IN PROGRESS** |
 | **05** | **AI Inference & GPU Expansion**<br>Integrate future ~60,000 THB AI Server into cluster mesh. Enable local LLMs to act as private cloud co-workers. | • Proxmox VE / Linux AI stack deployment<br>• NVIDIA Container Toolkit configuration<br>• Ollama + Open WebUI (Local ChatGPT clone)<br>• RAG Vector Database integration | **NVIDIA CUDA**<br>**Ollama / vLLM**<br>**Milvus / ChromaDB** | Future Build | ⚪ *Planned* |
 
 ---
@@ -49,7 +49,12 @@ Before closing Sprint 1 and moving to Sprint 2, the following conditions must be
 - [x] Portainer visual dashboard accessible directly via local browser without port conflicts.
 - [x] Traefik container routing rules active across local Docker socket (`homelab_mesh` network bridge functional).
 
-### 🏃 Sprint 3 Definition of Done (Active Targets)
-- [ ] Deploy VictoriaMetrics (low-RAM Prometheus alternative), Node Exporter, and cAdvisor.
-- [ ] Launch Grafana visualization dashboard accessible via browser (`http://homelab:3000`).
-- [ ] Establish live telemetry monitoring CPU, RAM, disk space, and container health.
+### 🏆 Sprint 3 Definition of Done (Completed)
+- [x] Deploy VictoriaMetrics (low-RAM Prometheus alternative), Node Exporter, and cAdvisor.
+- [x] Launch Grafana visualization dashboard accessible via browser (`http://homelab:3000` or Tailscale IP).
+- [x] Establish live telemetry monitoring CPU, RAM, disk space, and container health.
+
+### 🏃 Sprint 4 Definition of Done (Active Targets)
+- [ ] Deploy automated Docker container patching system (Watchtower) for unattended weekly updates.
+- [ ] Create Python self-documenting script (`autodox.py`) that audits running containers and updates markdown status tables.
+- [ ] Establish automated backup scripts with Restic/Tar to snapshot critical configs and volume payloads.

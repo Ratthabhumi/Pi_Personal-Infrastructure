@@ -67,6 +67,27 @@ services:
       - "traefik.http.routers.portainer.entrypoints=web,websecure"
       - "traefik.http.services.portainer.loadbalancer.server.port=9000"
 
+  # ----------------------------------------------------------------------------
+  # 3. WATCHTOWER - Autonomous SRE Container Patching & Maintenance Engine
+  # ----------------------------------------------------------------------------
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro # Required to inspect and cleanly replace outdated running container tags
+    environment:
+      - TZ=Asia/Bangkok
+      - WATCHTOWER_CLEANUP=true                      # Immediately prune and delete obsolete container images after update
+      - WATCHTOWER_INCLUDE_RESTARTING=true           # Attempt to self-heal stuck/restarting containers if an image patch exists
+      - WATCHTOWER_SCHEDULE=0 0 4 * * *              # Execute audit & patching daily at exactly 04:00 AM off-peak hours
+    networks:
+      - homelab_mesh
+    labels:
+      - "traefik.enable=false"                       # Background daemon worker without public UI exposure
+
 # ==============================================================================
 # VOLUMES & OVERLAY NETWORKING
 # ==============================================================================

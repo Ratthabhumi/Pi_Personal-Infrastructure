@@ -69,10 +69,10 @@ git pull origin main
 
 | บริการ (Service) | พอร์ต / ลิงก์เข้าเว็บ | หน้าที่รับผิดชอบ | ข้อมูลล็อกอินเริ่มต้น (Credentials) |
 | :--- | :--- | :--- | :--- |
-| **Portainer CE** | `https://homelab:9443`<br>*(หรือ `https://<Tailscale-IP>:9443`)* | แผงควบคุมกดคลอด ตรวจสอบ และสั่งการ Docker Container ผ่านปุ่มบนเว็บ โดยไม่ต้องพิมพ์คำสั่ง | *ตั้งค่ารหัสผ่านใหม่เองในการเข้าใช้งานครั้งแรก* |
-| **Grafana** | `http://homelab:3000`<br>*(หรือ `http://<Tailscale-IP>:3000`)* | ห้องบัญชาการจอภาพ Mission Control สไตล์ NASA/Cyberpunk แปลงตัวเลขเป็นกราฟิกสวยหรู 24 ชั่วโมง | **User:** `admin`<br>**Pass:** `admin123` *(ระบบจะให้ตั้งใหม่)* |
-| **VictoriaMetrics** | `http://homelab:8428` | เครื่องยนต์ Time-Series Database ที่เก็บข้อมูลชีพจร (เร็วกว่า และประหยัดแรมกว่า Prometheus 5 เท่า!) | - |
-| **Traefik** | `http://homelab:80`<br>`https://homelab:443` | ตำรวจจราจรผู้แจกแจง Domain name และ SSL Certificate ให้ทุกแอปในบ้าน (Edge Ingress Gateway) | - |
+| **Portainer CE** | `https://homelab:9443`<br>*(หรือ `https://100.116.167.3:9443`)* | แผงควบคุมกดคลอด ตรวจสอบ และสั่งการ Docker Container ผ่านปุ่มบนเว็บ โดยไม่ต้องพิมพ์คำสั่ง | *ตั้งค่ารหัสผ่านใหม่เองในการเข้าใช้งานครั้งแรก* |
+| **Grafana** | `http://homelab:3000`<br>*(หรือ `http://100.116.167.3:3000`)* | ห้องบัญชาการจอภาพ Mission Control สไตล์ NASA/Cyberpunk แปลงตัวเลขเป็นกราฟิกสวยหรู 24 ชั่วโมง | **User:** `admin`<br>**Pass:** `admin123` *(ระบบจะให้ตั้งใหม่)* |
+| **VictoriaMetrics** | `http://100.116.167.3:8428` | เครื่องยนต์ Time-Series Database ที่เก็บข้อมูลชีพจร (เร็วกว่า และประหยัดแรมกว่า Prometheus 5 เท่า!) | - |
+| **Traefik** | `http://100.116.167.3:80`<br>`https://100.116.167.3:443` | ตำรวจจราจรผู้แจกแจง Domain name และ SSL Certificate ให้ทุกแอปในบ้าน (Edge Ingress Gateway) | - |
 
 ---
 
