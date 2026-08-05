@@ -32,7 +32,7 @@ If the hardware or file system is corrupted:
 Instead of manually reinstalling packages, execute our automated infrastructure blueprint from your workstation:
 ```bash
 # Navigate to workspace on your main desktop
-cd C:/Users/Ratthabhumi/Desktop/CO-OP_Project/HomeLab
+cd C:/Users/MewMew/Desktop/Co-op/Pi_Personal-Infrastructure
 
 # Execute base operating system bootstrap & hardening
 make bootstrap

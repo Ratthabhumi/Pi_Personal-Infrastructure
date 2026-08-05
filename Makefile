@@ -40,15 +40,15 @@ apply-local:
 
 deploy-core:
 	@echo "[*] Deploying Gateway, Traefik Reverse Proxy, and Core DNS layer..."
-	ssh mew@homelab 'mkdir -p ~/.homelab/docker/core'
-	scp -r docker/core/* mew@homelab:~/.homelab/docker/core/
-	ssh mew@homelab 'cd ~/.homelab/docker/core && docker compose up -d --remove-orphans'
+	ssh mew@homelab 'mkdir -p ~/Pi_Personal-Infrastructure/docker/core'
+	scp -r docker/core/* mew@homelab:~/Pi_Personal-Infrastructure/docker/core/
+	ssh mew@homelab 'cd ~/Pi_Personal-Infrastructure/docker/core && docker compose up -d --remove-orphans'
 
 deploy-obs:
 	@echo "[*] Deploying Observability & Telemetry stack (SRE Layer)..."
-	ssh mew@homelab 'mkdir -p ~/.homelab/docker/observability'
-	scp -r docker/observability/* mew@homelab:~/.homelab/docker/observability/
-	ssh mew@homelab 'cd ~/.homelab/docker/observability && docker compose up -d --remove-orphans'
+	ssh mew@homelab 'mkdir -p ~/Pi_Personal-Infrastructure/docker/observability'
+	scp -r docker/observability/* mew@homelab:~/Pi_Personal-Infrastructure/docker/observability/
+	ssh mew@homelab 'cd ~/Pi_Personal-Infrastructure/docker/observability && docker compose up -d --remove-orphans'
 
 # ------------------------------------------------------------------------------
 # LOCAL SERVER CONTAINER COMMANDS (Run directly within mew@homelab terminal)

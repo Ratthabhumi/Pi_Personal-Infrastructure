@@ -32,9 +32,6 @@ services:
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
-      # Automatically redirect standard unsecured HTTP requests to secure HTTPS
-      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
-      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
       - "--log.level=INFO"
       - "--accesslog=true"
     networks:
@@ -42,7 +39,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.traefik-dash.rule=Host(`traefik.${LOCAL_DOMAIN:-homelab.ts.net}`)"
-      - "traefik.http.routers.traefik-dash.entrypoints=websecure"
+      - "traefik.http.routers.traefik-dash.entrypoints=web,websecure"
       - "traefik.http.routers.traefik-dash.service=api@internal"
 
   # ----------------------------------------------------------------------------
