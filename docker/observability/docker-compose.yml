@@ -7,7 +7,7 @@ services:
   # 1. VICTORIA-METRICS - Ultra-lightweight Time-Series Metrics Database (Prometheus Alternative)
   # ----------------------------------------------------------------------------
   victoriametrics:
-    image: victoriametrics/victoria-metrics:v1.103.0
+    image: victoriametrics/victoria-metrics:latest
     container_name: victoriametrics
     restart: unless-stopped
     security_opt:
@@ -20,7 +20,7 @@ services:
     command:
       - "-storageDataPath=/victoria-metrics-data"
       - "-promscrape.config=/etc/prometheus/prometheus.yml"
-      - "-retentionPeriod=1 # Retain full high-precision metrics for 1 month"
+      - "-retentionPeriod=1" # Retain full high-precision metrics for 1 month
     networks:
       - homelab_mesh
     labels:

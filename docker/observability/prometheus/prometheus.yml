@@ -16,7 +16,7 @@ scrape_configs:
       - targets: ['localhost:8428']
 
   # 2. Scrape physical bare-metal hardware CPU/RAM/Disk stats (Acer Aspire V13)
-  - job_name: 'node-exporter-host'
+  - job_name: 'node-exporter'
     static_configs:
       - targets: ['node-exporter:9100']
         labels:
@@ -24,7 +24,7 @@ scrape_configs:
           type: 'linux-baremetal'
 
   # 3. Scrape real-time memory & network footprints of individual Docker containers
-  - job_name: 'cadvisor-containers'
+  - job_name: 'cadvisor'
     static_configs:
       - targets: ['cadvisor:8080']
         labels:
