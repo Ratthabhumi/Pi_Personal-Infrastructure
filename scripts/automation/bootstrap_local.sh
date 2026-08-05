@@ -10,15 +10,15 @@ echo "==================================================================="
 echo "   🛡️ HOMELAB SELF-PROVISIONING & GITOPS RECONCILIATION ENGINE     "
 echo "==================================================================="
 
-# 1. Ensure core Python & Ansible automation runtimes exist natively on Ubuntu
-echo "[1/3] Checking OS prerequisite packages (Git & Ansible)..."
-if ! command -v ansible-playbook &> /dev/null; then
-    echo "  -> Ansible missing! Initializing localized package provisioning..."
+# 1. Ensure core Python, Ansible & Make automation runtimes exist natively on Ubuntu
+echo "[1/3] Checking OS prerequisite packages (Git, Make & Ansible)..."
+if ! command -v ansible-playbook &> /dev/null || ! command -v make &> /dev/null; then
+    echo "  -> Prerequisites missing! Initializing localized package provisioning..."
     sudo apt-get update -y
-    sudo apt-get install -y git ansible python3-apt software-properties-common
-    echo "  -> [OK] Ansible runtime successfully injected."
+    sudo apt-get install -y git make build-essential ansible python3-apt software-properties-common
+    echo "  -> [OK] Automation engine & tooling successfully injected."
 else
-    echo "  -> [OK] Ansible engine detected natively."
+    echo "  -> [OK] Automation tooling (Ansible & Make) detected natively."
 fi
 
 # 2. Synchronize current working state with Remote Git Repository (Optional if Git URL exists)
@@ -34,9 +34,20 @@ fi
 
 # 3. Execute Ansible locally to configure Ubuntu OS and Docker Engine
 echo "[3/3] Launching local Ansible Playbook execution against 'homelab'..."
+
+# Automatically detect if sudo requires password confirmation (-K flag)
+if sudo -n true 2>/dev/null; then
+    SUDO_FLAG=""
+    echo "  -> [OK] Sudo privileges active without manual password prompt."
+else
+    SUDO_FLAG="-K"
+    echo "  -> [Notice] Sudo authentication required. Please enter user password when prompted for 'BECOME password'."
+fi
+
 ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/00_bootstrap_server.yml \
     --connection=local \
     --limit=homelab \
+    ${SUDO_FLAG} \
     --extra-vars="ansible_python_interpreter=/usr/bin/python3"
 
 echo "==================================================================="

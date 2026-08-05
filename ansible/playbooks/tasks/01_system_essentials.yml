@@ -16,6 +16,8 @@
 - name: Install SRE diagnostics and Platform Engineering core packages
   ansible.builtin.apt:
     name:
+      - make
+      - build-essential
       - curl
       - git
       - htop

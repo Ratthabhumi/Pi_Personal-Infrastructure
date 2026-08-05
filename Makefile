@@ -49,3 +49,18 @@ deploy-obs:
 	ssh mew@homelab 'mkdir -p ~/.homelab/docker/observability'
 	scp -r docker/observability/* mew@homelab:~/.homelab/docker/observability/
 	ssh mew@homelab 'cd ~/.homelab/docker/observability && docker compose up -d --remove-orphans'
+
+# ------------------------------------------------------------------------------
+# LOCAL SERVER CONTAINER COMMANDS (Run directly within mew@homelab terminal)
+# ------------------------------------------------------------------------------
+core-up:
+	@echo "[*] Launching Core Gateway (Traefik & Portainer)..."
+	cd docker/core && docker compose up -d --remove-orphans
+
+core-down:
+	@echo "[*] Shutting down Core Gateway..."
+	cd docker/core && docker compose down
+
+obs-up:
+	@echo "[*] Launching SRE Observability & Telemetry Stack..."
+	cd docker/observability && docker compose up -d --remove-orphans
