@@ -40,3 +40,22 @@
     question: unattended-upgrades/enable_auto_updates
     value: "true"
     vtype: boolean
+
+- name: Inject Developer Ergonomics and auto-navigation aliases into interactive shell (.bashrc)
+  ansible.builtin.blockinfile:
+    path: /home/mew/.bashrc
+    marker: "# {mark} ANSIBLE MANAGED HOMELAB ERGONOMICS"
+    create: true
+    mode: '0644'
+    block: |
+      # Fast navigation & container inspection aliases
+      alias hl="cd ~/Pi_Personal-Infrastructure && make"
+      alias repo="cd ~/Pi_Personal-Infrastructure"
+      alias dps="docker ps -a"
+      alias dlogs="docker logs -f"
+      alias dstop="docker stop \$(docker ps -a -q) 2>/dev/null"
+
+      # Auto-navigate directly into Infrastructure Repo upon interactive SSH login
+      if [ -d "$HOME/Pi_Personal-Infrastructure" ] && [ "$PWD" = "$HOME" ]; then
+          cd "$HOME/Pi_Personal-Infrastructure"
+      fi
