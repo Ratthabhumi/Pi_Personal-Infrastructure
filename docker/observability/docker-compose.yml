@@ -36,19 +36,19 @@ services:
     image: prom/node-exporter:v1.8.2
     container_name: node-exporter
     restart: unless-stopped
+    pid: host              # Bind to host process ID space to accurately read bare-metal Linux hostname & CPU frequency
     security_opt:
       - no-new-privileges:true
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /:/rootfs:ro
+      - /etc/hostname:/etc/nodename:ro
     command:
       - "--path.procfs=/host/proc"
       - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/rootfs"
       - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
-      - "--collector.diskstats"
-      - "--collector.meminfo"
-      - "--collector.cpu"
     networks:
       - homelab_mesh
 
