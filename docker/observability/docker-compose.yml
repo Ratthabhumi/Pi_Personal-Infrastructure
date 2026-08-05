@@ -1,0 +1,112 @@
+# ==============================================================================
+# SPRINT 3: SRE OBSERVABILITY, TELEMETRY & AUTOMATIC DATA PROVISIONING STACK
+# Location: docker/observability/docker-compose.yml
+# ==============================================================================
+services:
+  # ----------------------------------------------------------------------------
+  # 1. VICTORIA-METRICS - Ultra-lightweight Time-Series Metrics Database (Prometheus Alternative)
+  # ----------------------------------------------------------------------------
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:v1.103.0
+    container_name: victoriametrics
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "8428:8428"  # Prometheus-compatible querying API & inspection UI
+    volumes:
+      - ./victoriametrics-data:/victoria-metrics-data
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - "-storageDataPath=/victoria-metrics-data"
+      - "-promscrape.config=/etc/prometheus/prometheus.yml"
+      - "-retentionPeriod=1 # Retain full high-precision metrics for 1 month"
+    networks:
+      - homelab_mesh
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vmetrics.rule=Host(`vmetrics.${LOCAL_DOMAIN:-homelab.ts.net}`) || Host(`vmetrics.homelab`)"
+      - "traefik.http.routers.vmetrics.entrypoints=web,websecure"
+
+  # ----------------------------------------------------------------------------
+  # 2. NODE EXPORTER - Hardware & OS Pulse Telemetry Collector
+  # ----------------------------------------------------------------------------
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: node-exporter
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+      - "--collector.diskstats"
+      - "--collector.meminfo"
+      - "--collector.cpu"
+    networks:
+      - homelab_mesh
+
+  # ----------------------------------------------------------------------------
+  # 3. cADVISOR (Google Container Advisor) - Real-Time Container Utilization Engine
+  # ----------------------------------------------------------------------------
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: cadvisor
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - homelab_mesh
+
+  # ----------------------------------------------------------------------------
+  # 4. GRAFANA - SRE Mission Control Visualization Dashboard
+  # ----------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: grafana
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "3000:3000"  # Fail-safe direct administrative access port
+    environment:
+      - TZ=Asia/Bangkok
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin123}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-piechart-panel
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./grafana-provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - homelab_mesh
+    depends_on:
+      - victoriametrics
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.${LOCAL_DOMAIN:-homelab.ts.net}`) || Host(`grafana.homelab`)"
+      - "traefik.http.routers.grafana.entrypoints=web,websecure"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+
+# ==============================================================================
+# VOLUMES & OVERLAY NETWORKING
+# ==============================================================================
+volumes:
+  grafana-storage:
+    name: grafana_observability_data
+
+networks:
+  homelab_mesh:
+    external: true # Leverage existing Core overlay network bridge created in Sprint 2

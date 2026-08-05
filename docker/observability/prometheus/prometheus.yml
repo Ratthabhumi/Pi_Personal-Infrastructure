@@ -1,0 +1,31 @@
+# ==============================================================================
+# PROMETHEUS / VICTORIAMETRICS SCRAPING CONFIGURATION
+# Location: docker/observability/prometheus/prometheus.yml
+# ==============================================================================
+global:
+  scrape_interval: 15s     # Frequency of collecting pulse metrics from endpoints
+  evaluation_interval: 15s # Frequency of rule condition evaluation
+  external_labels:
+    cluster: 'homelab-mesh'
+    datacenter: 'local-room'
+
+scrape_configs:
+  # 1. Scrape internal metrics engine performance
+  - job_name: 'victoriametrics'
+    static_configs:
+      - targets: ['localhost:8428']
+
+  # 2. Scrape physical bare-metal hardware CPU/RAM/Disk stats (Acer Aspire V13)
+  - job_name: 'node-exporter-host'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          node: 'homelab-server'
+          type: 'linux-baremetal'
+
+  # 3. Scrape real-time memory & network footprints of individual Docker containers
+  - job_name: 'cadvisor-containers'
+    static_configs:
+      - targets: ['cadvisor:8080']
+        labels:
+          engine: 'docker-ce'
