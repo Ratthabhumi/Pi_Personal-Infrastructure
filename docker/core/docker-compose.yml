@@ -54,6 +54,9 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    ports:
+      - "9000:9000"     # Direct administrative HTTP UI (Fail-safe management)
+      - "9443:9443"     # Direct administrative HTTPS UI
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - portainer_data:/data
