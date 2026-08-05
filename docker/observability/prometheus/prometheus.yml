@@ -4,7 +4,6 @@
 # ==============================================================================
 global:
   scrape_interval: 15s     # Frequency of collecting pulse metrics from endpoints
-  evaluation_interval: 15s # Frequency of rule condition evaluation
   external_labels:
     cluster: 'homelab-mesh'
     datacenter: 'local-room'

@@ -20,6 +20,7 @@ services:
     command:
       - "-storageDataPath=/victoria-metrics-data"
       - "-promscrape.config=/etc/prometheus/prometheus.yml"
+      - "-promscrape.config.strictParse=false"
       - "-retentionPeriod=1" # Retain full high-precision metrics for 1 month
     networks:
       - homelab_mesh
