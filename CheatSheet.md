@@ -49,6 +49,8 @@ git pull origin main
 | `make apply-local` | 🛡️ **Self-Bootstrapping:** ปลุกระบบ Ansible ตรวจเช็กและปรับจูนความปลอดภัย OS, โหลด Docker Engine และเปิด UFW Firewall อัตโนมัติ |
 | `make core-up` | 🚀 **Start Core Stack:** เปิดใช้งานประตูเฝ้ายาม **Traefik (Reverse Proxy)** และศูนย์คุมระบบ **Portainer CE (Web UI)** |
 | `make obs-up` | 📊 **Start Observability Stack:** เปิดตู้เครื่องมือแพทย์ **VictoriaMetrics**, **Node Exporter**, **cAdvisor** และห้องบัญชาการ **Grafana** |
+| `make autodox` | 📝 **Autonomous Documenter:** ปลุกหุ่นยนต์ Python สแกนสถานะทุก Container และอัปเดตไฟล์สถิติ [live_inventory.md](file:///c:/Users/MewMew/Desktop/Co-op/Pi_Personal-Infrastructure/docs/architecture/live_inventory.md) อัตโนมัติ |
+| `make backup` | 🛡️ **Snapshot & Backup Engine:** แพ็กข้อมูล Volume สำคัญ (Grafana/Portainer) เป็น `.tar.gz` พร้อมลบไฟล์สถิติเก่าเกิน 7 วันออกอัตโนมัติ |
 | `make status` | 🔍 **Health Inspector:** ตรวจดูชื่อ Container ทั้งหมดที่กำลังทำงาน พร้อมมาตรวัดกิน RAM/CPU แบบเรียลไทม์ |
 | `make core-down` | 🛑 **Shutdown Core:** ปิดพักระบบ Traefik & Portainer อย่างนิ่มนวล (ข้อมูลไม่สูญหาย) |
 | `make obs-down` | 🛑 **Shutdown Observability:** ปิดพักระบบ Grafana & VictoriaMetrics อย่างนิ่มนวล (ข้อมูลไม่สูญหาย) |
