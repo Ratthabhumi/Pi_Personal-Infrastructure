@@ -64,3 +64,11 @@ core-down:
 obs-up:
 	@echo "[*] Launching SRE Observability & Telemetry Stack..."
 	cd docker/observability && docker compose up -d --remove-orphans
+
+# ------------------------------------------------------------------------------
+# AUTONOMOUS AUTOMATION & SELF-DOCUMENTING AI COMMANDS (Sprint 4)
+# ------------------------------------------------------------------------------
+autodox:
+	@echo "[*] Launching Autonomous SRE Documentation Engine..."
+	@python3 scripts/automation/doc_generator.py
+	@echo "[*] Complete! Check docs/architecture/live_inventory.md for results."
