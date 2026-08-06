@@ -56,5 +56,5 @@ Before closing Sprint 1 and moving to Sprint 2, the following conditions must be
 
 ### 🏃 Sprint 4 Definition of Done (Active Targets)
 - [x] Deploy automated Docker container patching system (Watchtower) for unattended weekly updates.
-- [ ] Create Python self-documenting script (`autodox.py`) that audits running containers and updates markdown status tables.
+- [x] Create Python self-documenting script (`autodox.py`) that audits running containers and updates markdown status tables.
 - [ ] Establish automated backup scripts with Restic/Tar to snapshot critical configs and volume payloads.

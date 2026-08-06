@@ -72,3 +72,7 @@ autodox:
 	@echo "[*] Launching Autonomous SRE Documentation Engine..."
 	@python3 scripts/automation/doc_generator.py
 	@echo "[*] Complete! Check docs/architecture/live_inventory.md for results."
+
+backup:
+	@echo "[*] Launching Autonomous SRE Snapshot & Recovery Engine..."
+	@bash scripts/automation/auto_backup.sh
