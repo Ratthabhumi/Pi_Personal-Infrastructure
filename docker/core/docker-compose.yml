@@ -80,6 +80,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro # Required to inspect and cleanly replace outdated running container tags
     environment:
       - TZ=Asia/Bangkok
+      - DOCKER_API_VERSION=1.44                      # Override Go SDK legacy version 1.25 to meet modern Docker v27+ API requirement (>= 1.40)
       - WATCHTOWER_CLEANUP=true                      # Immediately prune and delete obsolete container images after update
       - WATCHTOWER_INCLUDE_RESTARTING=true           # Attempt to self-heal stuck/restarting containers if an image patch exists
       - WATCHTOWER_SCHEDULE=0 0 4 * * *              # Execute audit & patching daily at exactly 04:00 AM off-peak hours
