@@ -159,5 +159,20 @@ docker rm -f $(docker ps -aq) 2>/dev/null
 docker network prune -f
 ```
 
+### 🚨 แก้ Error: "client version 1.24 is too old" 
+อาการนี้เกิดจาก Docker Daemon รุ่นใหม่ๆ (v27+) ยกเลิกการรองรับ API เวอร์ชันเก่า แต่มี Container บางตัว (เช่น cAdvisor หรือโปรแกรมรุ่นเก่า) พยายามสื่อสารด้วย API v1.24 
+**วิธีแก้:** บังคับให้ Container ตัวนั้นใช้ API ใหม่โดยการเพิ่ม Environment Variable ใน `compose.yaml`:
+```yaml
+    environment:
+      - DOCKER_API_VERSION=1.44
+```
+
+### 🚨 ปัญหาการเข้า Subdomain ผ่าน Tailscale บนมือถือ (DNS Resolution Failed)
+Tailscale MagicDNS **ไม่รองรับ** การแปลผล Subdomain อัตโนมัติ (มันรู้จักแค่ชื่อ Host เครื่องหลัก เช่น `homelab` หรือ IP 100.x.x.x) 
+หากคุณเข้า `grafana.homelab.ts.net` ผ่านมือถือ เบราว์เซอร์จะหาไม่เจอ 
+**วิธีแก้ (สำหรับ HomeLab เบื้องต้น):** 
+ให้ทำการ Expose Port ออกมาตรงๆ ใน `compose.yaml` (เช่นเพิ่ม `ports: - "3000:3000"`) แล้วเข้าผ่าน `http://homelab:3000` แทน 
+(ปลอดภัย 100% เพราะ UFW Firewall บล็อคการเข้าถึงทั้งหมด ยกเว้นจากวง Tailscale `tailscale0` เท่านั้น)
+
 ---
 *🚀 **Keep Building, Keep Escalating, and Never Stop Learning!** 🚀*
