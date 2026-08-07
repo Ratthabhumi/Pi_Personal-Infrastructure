@@ -120,4 +120,44 @@ git pull origin main
   ```
 
 ---
+
+## 💾 7. วิชาลับจัดการ Storage & Production Infrastructure (Sprint 4-5)
+
+### 🚨 การย้าย Docker Data ลง HDD (Production Migration)
+เพื่อถนอม SSD และใช้พื้นที่ HDD 1TB ให้คุ้มค่า เราทำการย้ายข้อมูลทั้งหมดไปที่ `/data`:
+```bash
+# 1. สร้างโฟลเดอร์ปลายทาง
+sudo mkdir -p /data/docker/{traefik,portainer,grafana,victoriametrics}
+sudo chown -R mew:mew /data/docker
+
+# 2. คัดลอกข้อมูลแบบเซียน (เก็บ Permission ครบ)
+rsync -a ~/Pi_Personal-Infrastructure/docker/core/portainer-data/ /data/docker/portainer/data/
+
+# 3. รันระบบใหม่ด้วย Compose ไฟล์เดียว (Monolithic Compose)
+cd /data/docker
+docker compose up -d
+```
+
+### 🚨 การเขียน UUID อัตโนมัติ (Fstab Auto-Mount)
+ฮาร์ดดิสก์จะไม่หลุดแม้รีบูตเครื่อง หรือแม้แต่สลับสายจาก USB ไปเป็น SATA เพราะเราผูกด้วยรหัสบัตรประชาชนฮาร์ดดิสก์ (UUID):
+```bash
+# ดูรหัส UUID ของทุกไดรฟ์
+blkid
+
+# เปิดไฟล์ fstab เพื่อฝังรหัส (ระวังพังถ้าเขียนผิด!)
+sudo nano /etc/fstab
+# ตัวอย่างการเขียน: UUID=xxxx-xxxx /data ext4 defaults 0 2
+```
+
+### 🚨 เคลียร์ซากอารยธรรม (Docker Purge)
+หากระบบเก่าพัง หรือ IP Network ชนกัน (Pool overlaps) ให้ใช้ท่าไม้ตายล้างบาง:
+```bash
+# ลบ Container ที่ค้างอยู่ทั้งหมด (แบบบังคับ)
+docker rm -f $(docker ps -aq) 2>/dev/null
+
+# ล้าง Network ที่ไม่ได้ใช้ทั้งหมดเพื่อคืน IP
+docker network prune -f
+```
+
+---
 *🚀 **Keep Building, Keep Escalating, and Never Stop Learning!** 🚀*
