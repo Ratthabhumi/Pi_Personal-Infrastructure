@@ -158,6 +158,25 @@ services:
       - "traefik.http.routers.grafana.rule=Host(`grafana.${DOMAIN_NAME:-homelab.ts.net}`)"
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
 
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - TZ=${TZ:-Asia/Bangkok}
+      - ADMIN_TOKEN=${VAULTWARDEN_ADMIN_TOKEN}
+      - WEBSOCKET_ENABLED=true
+    volumes:
+      - /data/docker/vaultwarden/data:/data
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vaultwarden.rule=Host(`vaultwarden.${DOMAIN_NAME:-homelab.ts.net}`)"
+      - "traefik.http.services.vaultwarden.loadbalancer.server.port=80"
+
   watchtower:
     image: containrrr/watchtower:latest
     container_name: watchtower
