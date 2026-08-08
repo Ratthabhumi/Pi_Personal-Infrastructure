@@ -189,6 +189,7 @@ services:
       - "53:53/tcp"
       - "53:53/udp"
       - "3001:3000/tcp"
+      - "8081:80/tcp"
     environment:
       - TZ=${TZ:-Asia/Bangkok}
     volumes:
