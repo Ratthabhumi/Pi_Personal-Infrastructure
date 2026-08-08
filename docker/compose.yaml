@@ -179,6 +179,27 @@ services:
       - "traefik.http.routers.vaultwarden.rule=Host(`vaultwarden.${DOMAIN_NAME:-homelab.ts.net}`)"
       - "traefik.http.services.vaultwarden.loadbalancer.server.port=80"
 
+  adguardhome:
+    image: adguard/adguardhome:latest
+    container_name: adguardhome
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+    environment:
+      - TZ=${TZ:-Asia/Bangkok}
+    volumes:
+      - /data/docker/adguardhome/conf:/opt/adguardhome/conf
+      - /ssd-data/adguardhome/work:/opt/adguardhome/work
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.adguard.rule=Host(`adguard.${DOMAIN_NAME:-homelab.ts.net}`)"
+      - "traefik.http.services.adguard.loadbalancer.server.port=80"
+
   watchtower:
     image: containrrr/watchtower:latest
     container_name: watchtower
