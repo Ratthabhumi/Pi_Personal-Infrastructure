@@ -119,6 +119,24 @@ git pull origin main
   docker network ls
   ```
 
+### 🚨 ปัญหา 4: Docker ฟ้องว่า "client version 1.24 is too old"
+* **สาเหตุ:** Container (เช่น `cadvisor`, `traefik`) ใช้ API รุ่นเก่าเพื่อคุยกับ Docker Socket แต่ Ubuntu 24.04 ติดตั้ง Docker Engine v26+ ซึ่งยกเลิกรองรับ API รุ่นเก่าแล้ว
+* **วิธีแก้:** ต้องบังคับให้ Container ใช้ API รุ่นใหม่ โดยเพิ่ม Environment Variable ลงไปใน `compose.yaml` ของ Container ตัวนั้นๆ:
+  ```yaml
+  environment:
+    - DOCKER_API_VERSION=1.44
+  ```
+
+### 🚨 ปัญหา 5: เข้าเว็บ Subdomain (เช่น grafana.homelab.ts.net) บน iPhone/มือถือ ไม่ได้
+* **สาเหตุ:** Tailscale MagicDNS จะแปลงชื่อเครื่องหลัก (เช่น `homelab`) เป็น IP ให้อัตโนมัติ แต่มัน **ไม่รองรับ Subdomain** (เช่น `grafana.`) บนอุปกรณ์มือถือ (iOS/Android) ทำให้หาปลายทางไม่เจอ
+* **วิธีแก้เฉพาะหน้า (Fallback):** เปิดพอร์ตตรง (Port Forwarding) ทะลุออกมาในไฟล์ `compose.yaml` เพื่อให้เข้าผ่าน IP หรือชื่อเครื่องได้เลยโดยไม่ผ่าน Traefik Ingress:
+  ```yaml
+  grafana:
+    ports:
+      - "3000:3000"
+  ```
+  จากนั้นเข้าผ่าน URL 👉 `http://homelab:3000` หรือ `http://<Tailscale_IP>:3000`
+
 ---
 
 ## 💾 7. วิชาลับจัดการ Storage & Production Infrastructure (Sprint 4-5)
