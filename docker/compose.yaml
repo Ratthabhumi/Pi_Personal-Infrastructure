@@ -242,4 +242,21 @@ services:
       - "traefik.http.routers.kuma.rule=Host(`kuma.${DOMAIN_NAME:-homelab.ts.net}`)"
       - "traefik.http.services.kuma.loadbalancer.server.port=3001"
 
-# Test CI/CD Robot
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /data/docker/homepage/config:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - TZ=${TZ:-Asia/Bangkok}
+    networks:
+      - proxy
+      - internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.homepage.rule=Host(`home.${DOMAIN_NAME:-homelab.ts.net}`)"
+      - "traefik.http.services.homepage.loadbalancer.server.port=3000"

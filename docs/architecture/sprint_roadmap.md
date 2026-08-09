@@ -45,8 +45,9 @@ In modern Site Reliability Engineering (SRE), deploying application containers b
 
 | Sprint | Objective | Deliverables | Key Technologies | Estimated Time | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **09** | **Kubernetes Production Homelab**<br>Migrate Docker Compose workloads to a lightweight Kubernetes cluster (K3s) with GitOps. | • K3s Cluster Setup<br>• ArgoCD for GitOps | **K3s / Kubernetes**<br>**ArgoCD** | Future Build | ⏸️ *On Hold* |
-| **10** | **Private AI Infrastructure**<br>Deploy local Large Language Models (LLMs) for private, offline AI assistance. | • Ollama<br>• Open-WebUI | **Ollama**<br>**Local LLMs** | Future Build | ⏸️ *On Hold* |
+| **09** | **Homelab Dashboard Portal**<br>Deploy a lightweight dashboard (`gethomepage/homepage`) to serve as the unified entry point for all self-hosted applications, optimized for 4GB RAM. | • Homepage Dashboard<br>• Unified Traefik Routing | **Homepage**<br>**Docker** | 1 Day | ⚪ *Planned* |
+| **10** | **Kubernetes Production Homelab**<br>Migrate Docker Compose workloads to a lightweight Kubernetes cluster (K3s) with GitOps. | • K3s Cluster Setup<br>• ArgoCD for GitOps | **K3s / Kubernetes**<br>**ArgoCD** | Future Build | ⏸️ *On Hold* |
+| **11** | **Private AI Infrastructure**<br>Deploy local Large Language Models (LLMs) for private, offline AI assistance. | • Ollama<br>• Open-WebUI | **Ollama**<br>**Local LLMs** | Future Build | ⏸️ *On Hold* |
 
 ---
 
