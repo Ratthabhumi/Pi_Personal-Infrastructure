@@ -75,6 +75,9 @@ git pull origin main
 | **Grafana** | `http://homelab:3000`<br>*(หรือ `http://100.116.167.3:3000`)* | ห้องบัญชาการจอภาพ Mission Control สไตล์ NASA/Cyberpunk แปลงตัวเลขเป็นกราฟิกสวยหรู 24 ชั่วโมง | **User:** `admin`<br>**Pass:** `admin123` *(ระบบจะให้ตั้งใหม่)* |
 | **VictoriaMetrics** | `http://100.116.167.3:8428` | เครื่องยนต์ Time-Series Database ที่เก็บข้อมูลชีพจร (เร็วกว่า และประหยัดแรมกว่า Prometheus 5 เท่า!) | - |
 | **Traefik** | `http://100.116.167.3:80`<br>`https://100.116.167.3:443` | ตำรวจจราจรผู้แจกแจง Domain name และ SSL Certificate ให้ทุกแอปในบ้าน (Edge Ingress Gateway) | - |
+| **AdGuard Home** | `http://adguard.homelab.lan`<br>`http://100.116.167.3:8081` | ศูนย์ควบคุม DNS และหลุมดำดูดโฆษณา (Ad-blocker) สำหรับทุกอุปกรณ์ในบ้าน | *ตั้งค่ารหัสผ่านใหม่ในการเข้าใช้งานครั้งแรก* |
+| **Vaultwarden** | `https://vaultwarden.homelab.ts.net` | ตู้เซฟรหัสผ่านส่วนตัวสุดปลอดภัย (ต้องเข้าผ่าน HTTPS เสมอ เพื่อให้ระบบเข้ารหัสทำงานได้) | *ตั้งค่ารหัสผ่านใหม่ในการเข้าใช้งานครั้งแรก* |
+| **Uptime Kuma** | `http://kuma.homelab.lan` | ยามเฝ้าระวังเซิร์ฟเวอร์ คอยแจ้งเตือนผ่าน Telegram/Discord ทันทีถ้าระบบหรือเน็ตเวิร์กล่ม | *ตั้งค่ารหัสผ่านใหม่ในการเข้าใช้งานครั้งแรก* |
 
 ---
 

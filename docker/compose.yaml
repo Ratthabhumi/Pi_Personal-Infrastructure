@@ -12,7 +12,7 @@ networks:
 
 services:
   traefik:
-    image: traefik:v3.1
+    image: traefik:latest
     container_name: traefik
     restart: unless-stopped
     security_opt:
@@ -37,6 +37,7 @@ services:
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.tsresolver.tailscale=true"
       - "--log.level=INFO"
       - "--accesslog=true"
     networks:
@@ -176,7 +177,9 @@ services:
       - proxy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.vaultwarden.rule=Host(`vaultwarden.${DOMAIN_NAME:-homelab.ts.net}`)"
+      - "traefik.http.routers.vaultwarden.rule=Host(`homelab.tail35e4b4.ts.net`)"
+      - "traefik.http.routers.vaultwarden.entrypoints=websecure"
+      - "traefik.http.routers.vaultwarden.tls.certresolver=tsresolver"
       - "traefik.http.services.vaultwarden.loadbalancer.server.port=80"
 
   adguardhome:
@@ -221,3 +224,19 @@ services:
       - proxy
     labels:
       - "traefik.enable=false"
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /data/docker/uptime-kuma/data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.kuma.rule=Host(`kuma.${DOMAIN_NAME:-homelab.ts.net}`)"
+      - "traefik.http.services.kuma.loadbalancer.server.port=3001"
