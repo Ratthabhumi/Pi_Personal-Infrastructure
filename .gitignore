@@ -33,6 +33,7 @@ ansible-vault.password
 # 3. Terraform & Infrastructure State Files (Future-Proofing)
 *.tfstate
 *.tfstate.*
+*.tfvars
 .terraform/
 .terraform.lock.hcl
 override.tf

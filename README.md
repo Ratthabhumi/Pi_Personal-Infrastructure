@@ -22,8 +22,8 @@ homelab/
 ├── .github/                      # CI/CD Workflows, GitHub Actions, Automated linters & Security bots
 ├── ansible/                      # [OS / Provisioning Layer] Automation playbooks & host definitions
 │   ├── inventory/                # Target machines list (homelab server & future AI desktop)
-│   ├── playbooks/                # Step-by-step OS harding, package & docker installers
-│   └── roles/                    # Reusable modular configuration units
+│   └── playbooks/                # Step-by-step OS harding, package & docker installers
+├── terraform/                    # [External Infrastructure] Cloudflare DNS Management (Template)
 ├── docker/                       # [Compute / Container Layer] Monolithic Compose Configuration
 │   ├── compose.yaml              # Unified declarative stack (Traefik, Observability, Vaultwarden, AdGuard, Kuma)
 │   └── ai-platform/              # (Future) Local LLMs, Vector DBs, Worker nodes & Inference engines

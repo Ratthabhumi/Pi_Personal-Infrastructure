@@ -18,6 +18,9 @@ help:
 	@echo "  make rebuild-server - Full bare-metal to production rebuild (OS + Docker)"
 	@echo "  make lint           - Validate YAML, scripts, and Markdown styling across repo"
 	@echo "  make docs           - Automatically re-generate systems inventory markdown"
+	@echo "  make tf-init        - Initialize Terraform providers"
+	@echo "  make tf-plan        - Preview Cloudflare DNS changes via Terraform"
+	@echo "  make tf-apply       - Deploy DNS changes to Cloudflare via Terraform"
 	@echo "  make ssh            - Quick direct SSH connection into mew@homelab via Tailscale"
 	@echo "==================================================================="
 
@@ -50,6 +53,21 @@ rebuild-server:
 	ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/00_bootstrap_server.yml
 	ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/01_deploy_homelab.yml
 	@echo "[*] ✅ REBUILD COMPLETE! System is fully restored and ready."
+
+# ------------------------------------------------------------------------------
+# TERRAFORM IAC (CLOUDFLARE DNS MANAGEMENT)
+# ------------------------------------------------------------------------------
+tf-init:
+	@echo "[*] Initializing Terraform providers..."
+	cd terraform/cloudflare && terraform init
+
+tf-plan:
+	@echo "[*] Planning Terraform infrastructure changes..."
+	cd terraform/cloudflare && terraform plan -var-file=".env.tfvars"
+
+tf-apply:
+	@echo "[*] 🚀 APPLYING TERRAFORM CHANGES TO CLOUDFLARE..."
+	cd terraform/cloudflare && terraform apply -var-file=".env.tfvars"
 
 # ------------------------------------------------------------------------------
 # LOCAL SERVER CONTAINER COMMANDS (Run directly within mew@homelab terminal)
