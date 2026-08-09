@@ -11,7 +11,7 @@ echo "   🛡️ HOMELAB SELF-PROVISIONING & GITOPS RECONCILIATION ENGINE     "
 echo "==================================================================="
 
 # 1. Ensure core Python, Ansible & Make automation runtimes exist natively on Ubuntu
-echo "[1/3] Checking OS prerequisite packages (Git, Make & Ansible)..."
+echo "[1/4] Checking OS prerequisite packages (Git, Make & Ansible)..."
 if ! command -v ansible-playbook &> /dev/null || ! command -v make &> /dev/null; then
     echo "  -> Prerequisites missing! Initializing localized package provisioning..."
     sudo apt-get update -y
@@ -22,7 +22,7 @@ else
 fi
 
 # 2. Synchronize current working state with Remote Git Repository (Optional if Git URL exists)
-echo "[2/3] Checking git repository sync status..."
+echo "[2/4] Checking git repository sync status..."
 if git rev-parse --is-inside-work-tree &> /dev/null; then
     if git remote get-url origin &> /dev/null; then
         echo "  -> Pulling latest infrastructure declaration state from remote Git origin..."
@@ -33,7 +33,7 @@ if git rev-parse --is-inside-work-tree &> /dev/null; then
 fi
 
 # 3. Execute Ansible locally to configure Ubuntu OS and Docker Engine
-echo "[3/3] Launching local Ansible Playbook execution against 'homelab'..."
+echo "[3/4] Launching local Ansible Playbook for OS Configuration..."
 
 # Automatically detect if sudo requires password confirmation (-K flag)
 if sudo -n true 2>/dev/null; then
@@ -45,6 +45,13 @@ else
 fi
 
 ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/00_bootstrap_server.yml \
+    --connection=local \
+    --limit=homelab \
+    ${SUDO_FLAG} \
+    --extra-vars="ansible_python_interpreter=/usr/bin/python3"
+
+echo "[4/4] Launching local Ansible Playbook for Application Deployment..."
+ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/01_deploy_homelab.yml \
     --connection=local \
     --limit=homelab \
     ${SUDO_FLAG} \

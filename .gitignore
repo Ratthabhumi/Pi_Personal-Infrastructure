@@ -28,6 +28,7 @@ ansible/retry/
 *.vault
 .ansible/
 ansible-vault.password
+.vault_pass
 
 # 3. Terraform & Infrastructure State Files (Future-Proofing)
 *.tfstate
