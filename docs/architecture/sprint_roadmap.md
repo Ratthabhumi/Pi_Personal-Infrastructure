@@ -37,7 +37,17 @@ In modern Site Reliability Engineering (SRE), deploying application containers b
 | **06** | **Self-Hosted Apps & Advanced Monitoring**<br>Vaultwarden, AdGuard Home, Prometheus, VictoriaMetrics, Grafana, Alerting | • Vaultwarden Password Manager<br>• Advanced Alerting (Telegram/Discord) | **Self-Hosting**<br>**Alertmanager** | 2-3 Days | 🏆 **COMPLETED** |
 | **07** | **Infrastructure as Code (IaC)**<br>Codify the entire Homelab infrastructure using Ansible and Terraform. | • Ansible playbooks for OS & Apps<br>• Terraform for Cloudflare DNS (Template) | **Ansible**<br>**Terraform** | 1-2 Days | 🏆 **COMPLETED** |
 | **08** | **Continuous Integration / Deployment (CI/CD)**<br>Automate testing and deployment pipelines using GitHub Actions. | • GitHub Actions pipeline<br>• automated testing & linting | **GitHub Actions**<br>**CI/CD** | 1-2 Days | 🏆 **COMPLETED** |
-| **09** | **Kubernetes Production Homelab**<br>Migrate Docker Compose workloads to a lightweight Kubernetes cluster (K3s) with GitOps. | • K3s Cluster Setup<br>• ArgoCD for GitOps | **K3s / Kubernetes**<br>**ArgoCD** | Future Build | ⚪ *Planned* |
+
+---
+
+### 🟡 PHASE 2: Enterprise Cloud & AI (ON HOLD)
+*Status: Awaiting Hardware Upgrade (Minimum 16GB RAM recommended).*
+
+| Sprint | Objective | Deliverables | Key Technologies | Estimated Time | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **09** | **Kubernetes Production Homelab**<br>Migrate Docker Compose workloads to a lightweight Kubernetes cluster (K3s) with GitOps. | • K3s Cluster Setup<br>• ArgoCD for GitOps | **K3s / Kubernetes**<br>**ArgoCD** | Future Build | ⏸️ *On Hold* |
+| **10** | **Private AI Infrastructure**<br>Deploy local Large Language Models (LLMs) for private, offline AI assistance. | • Ollama<br>• Open-WebUI | **Ollama**<br>**Local LLMs** | Future Build | ⏸️ *On Hold* |
+
 ---
 
 ## 📌 Sprint 1 & 2 Definition of Done (DoD)
