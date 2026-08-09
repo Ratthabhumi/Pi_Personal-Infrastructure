@@ -48,7 +48,7 @@ Before closing Sprint 1 and moving to Sprint 2, the following conditions must be
 - [x] Server log rotation (`/etc/docker/daemon.json`) and automatic unattended OS patch installation verified.
 
 ### 🏁 Sprint 2 Definition of Done
-- [x] Core routing stack (`docker/core/docker-compose.yml`) deploying Traefik v3 and Portainer CE successfully.
+- [x] Core routing stack (`docker/compose.yaml`) deploying Traefik v3 and Portainer CE successfully.
 - [x] Portainer visual dashboard accessible directly via local browser without port conflicts.
 - [x] Traefik container routing rules active across local Docker socket (`homelab_mesh` network bridge functional).
 

@@ -24,11 +24,9 @@ homelab/
 │   ├── inventory/                # Target machines list (homelab server & future AI desktop)
 │   ├── playbooks/                # Step-by-step OS harding, package & docker installers
 │   └── roles/                    # Reusable modular configuration units
-├── docker/                       # [Compute / Container Layer] Docker Compose & container declarations
-│   ├── core/                     # Foundational Routing, TLS Gateway & Reverse Proxy (Traefik, DNS)
-│   ├── observability/            # SRE Stack: Prometheus, Grafana, Loki, Alertmanager
-│   ├── ai-platform/              # Local LLMs, Vector DBs, Worker nodes & Inference engines
-│   └── self-hosted/              # Personal cloud utilities (Nextcloud, Vaultwarden, Media, etc.)
+├── docker/                       # [Compute / Container Layer] Monolithic Compose Configuration
+│   ├── compose.yaml              # Unified declarative stack (Traefik, Observability, Vaultwarden, AdGuard, Kuma)
+│   └── ai-platform/              # (Future) Local LLMs, Vector DBs, Worker nodes & Inference engines
 ├── kubernetes/                   # [Orchestration Layer] Future declarative K3s / GitOps Helm deployment
 ├── scripts/                      # Utility scripts (Automated Restic backups, Self-healing, Document bots)
 ├── docs/                         # Architecture designs, runbooks, post-mortems, and DR plans
