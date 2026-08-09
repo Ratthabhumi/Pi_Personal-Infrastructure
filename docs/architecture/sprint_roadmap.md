@@ -61,3 +61,16 @@ Before closing Sprint 1 and moving to Sprint 2, the following conditions must be
 - [x] Deploy automated Docker container patching system (Watchtower) for unattended weekly updates.
 - [x] Create Python self-documenting script (`autodox.py`) that audits running containers and updates markdown status tables.
 - [x] Establish automated backup scripts with Restic/Tar to snapshot critical configs and volume payloads.
+
+### 🏆 Sprint 5 Definition of Done (Completed)
+- [x] Migrate all persistent Docker volume data to the `/data` HDD mount point.
+- [x] Consolidate fragmented `docker-compose.yml` files into a single monolithic `/data/docker/compose.yaml`.
+- [x] Harden security by applying `no-new-privileges:true` and read-only mounts where applicable.
+- [x] Automatically mount HDD on boot using fstab UUIDs.
+
+### 🏆 Sprint 6 Definition of Done (Completed)
+- [x] Deploy AdGuard Home as a network-wide DNS sinkhole and ad blocker.
+- [x] Deploy Vaultwarden for self-hosted secure password management via Tailscale HTTPS.
+- [x] Deploy Uptime Kuma for internal service monitoring and external heartbeat tracking.
+- [x] Integrate Telegram Bot API for real-time push notifications on service degradation.
+- [x] Integrate Healthchecks.io for external server offline detection (Push method).

@@ -20,11 +20,12 @@ Our engineering goals mirror top-tier corporate platform designs (Google, Cloudf
          └──► [ Acer Aspire V13 ('homelab' - Control & Edge Server) ] (24/7 Live)
                   ├── 100.x.x.10 : SSH Administration Port (OpenSSH)
                   ├── Traefik Edge Router (Internal HTTPS Termination)
+                  │       ├── vaultwarden.homelab.ts.net ---> Port 80 (Password Vault)
+                  │       ├── adguard.homelab.ts.net   ---> Port 80 (DNS/Adblock)
                   │       ├── grafana.homelab.ts.net   ---> Port 3000 (Grafana UI)
-                  │       ├── prometheus.homelab.ts.net ---> Port 9090 (Metrics)
                   │       └── portainer.homelab.ts.net ---> Port 9000 (Container UI)
                   │
-                  └── Core Services & Observability Engine
+                  └── Core Services: Uptime Kuma (Alerting), VictoriaMetrics, Watchtower
 ```
 
 ## 3. Hardware Responsibility Breakdown
