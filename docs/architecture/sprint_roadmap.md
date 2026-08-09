@@ -36,7 +36,7 @@ In modern Site Reliability Engineering (SRE), deploying application containers b
 | **05** | **Production Infrastructure Refactoring**<br>Migrate to enterprise-grade layout. Move data to HDD, unify Compose files, drop kernel capabilities, and enforce tight security profiles. | • Unified `compose.yaml`<br>• Data migration to `/data/docker`<br>• Enforce security profiles | **DevOps Best Practices**<br>**Storage / ext4** | 1-2 Days | 🏆 **COMPLETED** |
 | **06** | **Self-Hosted Apps & Advanced Monitoring**<br>Vaultwarden, AdGuard Home, Prometheus, VictoriaMetrics, Grafana, Alerting | • Vaultwarden Password Manager<br>• Advanced Alerting (Telegram/Discord) | **Self-Hosting**<br>**Alertmanager** | 2-3 Days | 🏆 **COMPLETED** |
 | **07** | **Infrastructure as Code (IaC)**<br>Codify the entire Homelab infrastructure using Ansible and Terraform. | • Ansible playbooks for OS & Apps<br>• Terraform for Cloudflare DNS (Template) | **Ansible**<br>**Terraform** | 1-2 Days | 🏆 **COMPLETED** |
-| **08** | **Continuous Integration / Deployment (CI/CD)**<br>Automate testing and deployment pipelines using GitHub Actions. | • GitHub Actions pipeline<br>• automated testing & linting | **GitHub Actions**<br>**CI/CD** | Future Build | ⚪ *Planned* |
+| **08** | **Continuous Integration / Deployment (CI/CD)**<br>Automate testing and deployment pipelines using GitHub Actions. | • GitHub Actions pipeline<br>• automated testing & linting | **GitHub Actions**<br>**CI/CD** | 1-2 Days | 🏆 **COMPLETED** |
 | **09** | **Kubernetes Production Homelab**<br>Migrate Docker Compose workloads to a lightweight Kubernetes cluster (K3s) with GitOps. | • K3s Cluster Setup<br>• ArgoCD for GitOps | **K3s / Kubernetes**<br>**ArgoCD** | Future Build | ⚪ *Planned* |
 ---
 
@@ -79,3 +79,9 @@ Before closing Sprint 1 and moving to Sprint 2, the following conditions must be
 - [x] `01_deploy_homelab.yml` created to completely automate the provisioning of the `/data/docker` application stack.
 - [x] Terraform templates created for Cloudflare DNS, securely structured with ignored `.env.tfvars`.
 - [x] Makefile unified to support `deploy-prod` from Windows and `apply-local` from the Ubuntu server.
+
+### 🏆 Sprint 8 Definition of Done (Completed)
+- [x] `.github/workflows/ci.yml` active to automatically lint YAML and Ansible files on every push.
+- [x] `.github/workflows/cd.yml` active to automatically deploy verified code to Homelab via self-hosted runner.
+- [x] `.yamllint` configured to respect Windows/DevOps styling preferences without blocking CI.
+- [x] Self-hosted GitHub Actions Runner installed and verified running natively on the `mew@homelab` server.

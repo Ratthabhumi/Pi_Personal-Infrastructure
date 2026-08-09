@@ -3,6 +3,8 @@
 ![Architecture Mode: Production & GitOps](https://img.shields.io/badge/Architecture-GitOps%20%2F%20IaC-blue?style=for-the-badge)
 ![OS: Ubuntu Server 24.04 LTS](https://img.shields.io/badge/Ubuntu%20Server-24.04%20LTS-e95420?style=for-the-badge&logo=ubuntu)
 ![Networking: Tailscale Mesh](https://img.shields.io/badge/Networking-Tailscale%20Mesh-orange?style=for-the-badge)
+![CI Status](https://img.shields.io/github/actions/workflow/status/Ratthabhumi/Pi_Personal-Infrastructure/ci.yml?label=CI%20Linting&style=for-the-badge)
+![CD Status](https://img.shields.io/github/actions/workflow/status/Ratthabhumi/Pi_Personal-Infrastructure/cd.yml?label=CD%20Deploy&style=for-the-badge)
 
 ## 📌 Vision & Philosophy
 This repository serves as the **Single Source of Truth (SSOT)** for deploying, maintaining, monitoring, and scaling a personal cloud and Artificial Intelligence infrastructure.
@@ -19,7 +21,7 @@ We strictly abide by modern **DevOps, Site Reliability Engineering (SRE), and Pl
 
 ```
 homelab/
-├── .github/                      # CI/CD Workflows, GitHub Actions, Automated linters & Security bots
+├── .github/                      # [CI/CD Layer] GitHub Actions for Linting (CI) & Deployment (CD)
 ├── ansible/                      # [OS / Provisioning Layer] Automation playbooks & host definitions
 │   ├── inventory/                # Target machines list (homelab server & future AI desktop)
 │   └── playbooks/                # Step-by-step OS harding, package & docker installers

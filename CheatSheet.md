@@ -48,6 +48,18 @@ git pull origin main
 | :--- | :--- |
 | `make apply-local` | 🛡️ **Self-Bootstrapping:** ปลุกระบบ Ansible ตรวจเช็กและปรับจูนความปลอดภัย OS, โหลด Docker Engine และเปิด UFW Firewall อัตโนมัติ |
 | `make core-up` | 🚀 **Start Core Stack:** เปิดใช้งานประตูเฝ้ายาม **Traefik (Reverse Proxy)** และศูนย์คุมระบบ **Portainer CE (Web UI)** |
+| `make tf-apply` | ยืนยันการยิงโค้ด Terraform ขึ้นไปแก้ DNS ของจริง |
+
+### 🤖 CI/CD Pipeline (Sprint 8)
+| Command/Action | Description |
+| :--- | :--- |
+| `git push` | สั่งให้ GitHub Actions ตรวจสอบโค้ด (CI) และรัน Deploy (CD) อัตโนมัติ |
+| `sudo ./svc.sh status` | เช็คสถานะหุ่นยนต์ Self-Hosted Runner ในเครื่องเซิร์ฟเวอร์ |
+| `sudo ./svc.sh start/stop` | เปิด/ปิดการทำงานของหุ่นยนต์รับคำสั่งจาก GitHub |
+
+### 📦 Utilities & SRE Toolstack
+| คำสั่ง Makefile สั่งการ | หน้าที่และความหมาย (What it does) |
+| :--- | :--- |
 | `make obs-up` | 📊 **Start Observability Stack:** เปิดตู้เครื่องมือแพทย์ **VictoriaMetrics**, **Node Exporter**, **cAdvisor** และห้องบัญชาการ **Grafana** |
 | `make autodox` | 📝 **Autonomous Documenter:** ปลุกหุ่นยนต์ Python สแกนสถานะทุก Container และอัปเดตไฟล์สถิติ [live_inventory.md](file:///c:/Users/MewMew/Desktop/Co-op/Pi_Personal-Infrastructure/docs/architecture/live_inventory.md) อัตโนมัติ |
 | `make backup` | 🛡️ **Snapshot & Backup Engine:** แพ็กข้อมูล Volume สำคัญ (Grafana/Portainer) เป็น `.tar.gz` พร้อมลบไฟล์สถิติเก่าเกิน 7 วันออกอัตโนมัติ |
