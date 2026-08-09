@@ -6,7 +6,7 @@
 
 - name: 🚀 Sprint 7 - Application Deployment (Docker Compose)
   hosts: home_servers
-  become: true
+  become: false
   gather_facts: false
 
   tasks:
