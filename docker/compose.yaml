@@ -43,7 +43,7 @@ services:
     networks:
       - proxy
     healthcheck:
-      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      test: [ "CMD", "traefik", "healthcheck", "--ping" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -97,9 +97,9 @@ services:
     container_name: node-exporter
     restart: unless-stopped
     pid: host
-    read_only: true 
+    read_only: true
     cap_drop:
-      - ALL       
+      - ALL
     security_opt:
       - no-new-privileges:true
     volumes:
@@ -112,7 +112,7 @@ services:
       - "--path.rootfs=/rootfs"
       - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
     networks:
-      - internal 
+      - internal
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.49.1
@@ -152,7 +152,7 @@ services:
     depends_on:
       - victoriametrics
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      test: [ "CMD", "wget", "-qO-", "http://localhost:3000/api/health" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -236,6 +236,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - proxy
+      - internal
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.kuma.rule=Host(`kuma.${DOMAIN_NAME:-homelab.ts.net}`)"
