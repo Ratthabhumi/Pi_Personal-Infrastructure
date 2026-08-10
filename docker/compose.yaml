@@ -34,6 +34,7 @@ services:
       - "--api.dashboard=true"
       - "--ping=true"
       - "--providers.docker=true"
+      - "--providers.docker.network=homelab_proxy"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
