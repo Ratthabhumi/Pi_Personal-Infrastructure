@@ -256,6 +256,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       - TZ=${TZ:-Asia/Bangkok}
+      - HOMEPAGE_ALLOWED_HOSTS=home.mew.lab,100.116.167.3,home.homelab.ts.net
     networks:
       - proxy
       - internal
