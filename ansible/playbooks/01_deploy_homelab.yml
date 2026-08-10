@@ -37,6 +37,15 @@
         msg: "WARNING: /data/docker/.env does not exist on the server. Your containers may fail to start without secrets (VAULTWARDEN_ADMIN_TOKEN, etc). Please ensure .env is created securely."
       when: not env_file.stat.exists
 
+    - name: 🔧 Fix Grafana Data Directory Permissions
+      ansible.builtin.file:
+        path: /data/docker/grafana/data
+        state: directory
+        owner: "472"
+        group: "0"
+        mode: '0775'
+      become: true
+
     - name: 🐳 Deploy Unified Production Stack via Docker Compose
       ansible.builtin.command:
         cmd: docker compose up -d --remove-orphans
