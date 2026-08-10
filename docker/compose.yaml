@@ -152,11 +152,6 @@ services:
       - internal
     depends_on:
       - victoriametrics
-    healthcheck:
-      test: [ "CMD", "wget", "-qO-", "http://localhost:3000/api/health" ]
-      interval: 10s
-      timeout: 5s
-      retries: 3
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.grafana.rule=Host(`grafana.mew.lab`)"
