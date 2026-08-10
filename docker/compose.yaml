@@ -248,6 +248,8 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    ports:
+      - "3000:3000"
     volumes:
       - /data/docker/homepage/config:/app/config
       - /var/run/docker.sock:/var/run/docker.sock:ro
