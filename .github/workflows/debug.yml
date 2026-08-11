@@ -7,8 +7,9 @@ jobs:
   debug:
     runs-on: self-hosted
     steps:
-      - name: Check Disk Space
+      - name: Expand LVM
         run: |
-          df -h
-          echo "======================="
-          lsblk
+          echo "Testing sudo..."
+          sudo -n lvextend -l +100%FREE /dev/mapper/ubuntu--vg-ubuntu--lv || echo "sudo failed"
+          sudo -n resize2fs /dev/mapper/ubuntu--vg-ubuntu--lv || echo "resize2fs failed"
+          df -h /
