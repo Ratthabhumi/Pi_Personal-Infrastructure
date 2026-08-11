@@ -7,8 +7,10 @@ jobs:
   debug:
     runs-on: self-hosted
     steps:
-      - name: Expand LVM via Docker
+      - name: Reset Portainer Password
         run: |
-          echo "Expanding LVM..."
-          docker run --rm --privileged -v /dev:/dev -v /run:/run -v /sys:/sys -e DEBIAN_FRONTEND=noninteractive -e DM_DISABLE_UDEV=1 -e LVM_SUPPRESS_FD_WARNINGS=1 ubuntu sh -c "apt-get update && apt-get install -y lvm2 e2fsprogs && lvextend -l +100%FREE /dev/mapper/ubuntu--vg-ubuntu--lv && resize2fs /dev/mapper/ubuntu--vg-ubuntu--lv"
+          docker stop portainer
+          docker run --rm -v /data/docker/portainer/data:/data portainer/helper-reset-password > portainer_reset.log || true
+          docker start portainer
+          cat portainer_reset.log
           df -h /
