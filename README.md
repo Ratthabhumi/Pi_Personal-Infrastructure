@@ -10,8 +10,8 @@
 ## 📌 Vision & Philosophy
 This repository serves as the **Single Source of Truth (SSOT)** for deploying, maintaining, monitoring, and scaling a personal cloud and Artificial Intelligence infrastructure. 
 
-> 🎉 **Update (August 2026): PHASE 1 COMPLETED**
-> The infrastructure has been successfully deployed as a highly optimized, lightweight Docker Compose stack, tailor-made to run efficiently on an Acer Aspire V13 (4GB RAM). Features include a Zero-Trust Tailscale network, UFW firewall, automated self-hosted CI/CD via GitHub Actions, and an expansive self-hosted application suite (Vaultwarden, AdGuard, Grafana). Phase 2 (Kubernetes & Local LLMs) is currently on hold pending a hardware upgrade (16GB+ RAM recommended).
+> 🎉 **Update (August 2026): PHASE 1 COMPLETED & HOMEPAGE DEPLOYED**
+> The infrastructure has been successfully deployed as a highly optimized, lightweight Docker Compose stack, tailor-made to run efficiently on an Acer Aspire V13 (4GB RAM). Features include a Zero-Trust Tailscale network, UFW firewall, automated self-hosted CI/CD via GitHub Actions, and an expansive self-hosted application suite (Vaultwarden, AdGuard, Grafana, Homepage Dashboard). We also implemented advanced storage management (LVM Expansion) and automated GitOps rolling updates (`--pull always`). Phase 2 (Kubernetes & Local LLMs) is currently on hold pending a hardware upgrade (16GB+ RAM recommended).
 
 We strictly abide by modern **DevOps, Site Reliability Engineering (SRE), and Platform Engineering** practices:
 1. **Cattle, Not Pets**: Servers and configurations are completely modular, automated, and ephemeral. Should any compute instance fail, rebuilding it takes minutes via code.

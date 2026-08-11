@@ -207,6 +207,27 @@ Tailscale MagicDNS **ไม่รองรับ** การแปลผล Subd
 ให้ทำการ Expose Port ออกมาตรงๆ ใน `compose.yaml` (เช่นเพิ่ม `ports: - "3000:3000"`) แล้วเข้าผ่าน `http://homelab:3000` แทน 
 (ปลอดภัย 100% เพราะ UFW Firewall บล็อคการเข้าถึงทั้งหมด ยกเว้นจากวง Tailscale `tailscale0` เท่านั้น)
 
+### 🚨 การขยายขนาดดิสก์หลัก (LVM Root Disk Expansion)
+ในกรณีที่ขยายความจุฮาร์ดดิสก์หรือระบบสร้างพาร์ติชันมาไม่เต็ม ระบบ LVM จะไม่ขยายอัตโนมัติ **ห้ามรันคำสั่งขยายผ่าน Container หรือ CI/CD อัตโนมัติ** เพราะจะติด Kernel Lock (`udev` block) ให้รันด้วยตัวเองผ่านหน้าจอเซิร์ฟเวอร์โดยตรง:
+```bash
+# 1. เช็คว่าพาร์ติชันมีพื้นที่ 100% หรือยัง
+lsblk
+
+# 2. ขยายกล่อง LVM ให้เต็มพื้นที่ 100%
+sudo lvextend -l +100%FREE /dev/mapper/ubuntu--vg-ubuntu--lv
+
+# 3. ขยายระบบไฟล์ (Filesystem) ให้รู้จักพื้นที่ใหม่
+sudo resize2fs /dev/mapper/ubuntu--vg-ubuntu--lv
+```
+
+### 🚨 ปัญหา Docker ไม่ยอมอัปเดตเวอร์ชันใหม่ (Tag: latest)
+บางแอปพลิเคชัน (เช่น Uptime Kuma) ผู้พัฒนาอาจไม่ตั้งให้แท็ก `latest` ข้าม Major Version หากต้องการอัปเดตแบบก้าวกระโดด ให้เจาะจงเลขเวอร์ชันใน `compose.yaml`:
+```yaml
+  uptime-kuma:
+    image: louislam/uptime-kuma:2.5.0 # ล็อกเป้าหมายชัดเจน
+```
+*(ปล. ระบบ CI/CD ถูกตั้งค่าเป็น `docker compose up -d --pull always` เพื่อบังคับดึงโค้ดล่าสุดเสมอ)*
+
 ---
 
 ## 🔔 8. คู่มือระบบแจ้งเตือนฉุกเฉิน (Alerting & Heartbeat)
