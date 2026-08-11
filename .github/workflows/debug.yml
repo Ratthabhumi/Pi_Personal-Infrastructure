@@ -1,0 +1,12 @@
+name: Debug Server
+on:
+  push:
+    paths:
+      - 'debug.txt'
+jobs:
+  debug:
+    runs-on: self-hosted
+    steps:
+      - name: Check AdGuard Config
+        run: |
+          cat /data/docker/adguardhome/conf/AdGuardHome.yaml | grep -A 5 "^users:"
