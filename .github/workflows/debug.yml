@@ -9,4 +9,4 @@ jobs:
     steps:
       - name: Check AdGuard Config
         run: |
-          cat /data/docker/adguardhome/conf/AdGuardHome.yaml | grep -A 5 "^users:"
+          docker run --rm -v /data/docker/adguardhome/conf/AdGuardHome.yaml:/app/AdGuardHome.yaml alpine cat /app/AdGuardHome.yaml | grep -A 5 "^users:"
