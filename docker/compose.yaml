@@ -222,7 +222,7 @@ services:
       - "traefik.enable=false"
 
   uptime-kuma:
-    image: louislam/uptime-kuma:latest
+    image: louislam/uptime-kuma:2.5.0
     container_name: uptime-kuma
     restart: unless-stopped
     security_opt:
