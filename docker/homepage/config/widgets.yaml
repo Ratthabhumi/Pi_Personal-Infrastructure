@@ -1,0 +1,8 @@
+- resources:
+    cpu: true
+    memory: true
+    expanded: true
+    disk:
+      - /hostfs/M2_SSD
+      - /hostfs/HDD_1TB
+      - /hostfs/SATA_SSD
