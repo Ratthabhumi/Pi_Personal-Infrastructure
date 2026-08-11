@@ -7,6 +7,8 @@ jobs:
   debug:
     runs-on: self-hosted
     steps:
-      - name: Check AdGuard Config
+      - name: Check Disk Space
         run: |
-          docker run --rm -v /data/docker/adguardhome/conf/AdGuardHome.yaml:/app/AdGuardHome.yaml alpine cat /app/AdGuardHome.yaml | grep -A 5 "^users:"
+          df -h
+          echo "======================="
+          lsblk
