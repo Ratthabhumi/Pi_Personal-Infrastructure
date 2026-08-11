@@ -41,12 +41,22 @@
       ansible.builtin.command:
         cmd: docker run --rm -v /data/docker/grafana/data:/data alpine chown -R 472:0 /data
 
+    - name: 🔐 Reset AdGuard Home Password to admin123 (via Docker)
+      ansible.builtin.command:
+        cmd: docker run --rm -v /data/docker/adguardhome/conf/AdGuardHome.yaml:/app/AdGuardHome.yaml alpine sed -i -E 's/(password: ).*/\1$2a$10$vI8aWBnW3fID.ZQ4\/zo1G.q1lRps.9cGLcZEiGDMVr5yUP1KUOYTa/' /app/AdGuardHome.yaml
+      ignore_errors: true
+
     - name: 🐳 Deploy Unified Production Stack via Docker Compose
       ansible.builtin.command:
         cmd: docker compose up -d --remove-orphans
         chdir: /data/docker
       register: compose_output
       changed_when: "'Started' in compose_output.stdout or 'Recreated' in compose_output.stdout or 'Created' in compose_output.stdout"
+
+    - name: 🔄 Restart AdGuard Home to clear rate limit
+      ansible.builtin.command:
+        cmd: docker compose restart adguardhome
+        chdir: /data/docker
 
     - name: 📊 Display Docker Compose Output
       ansible.builtin.debug:
