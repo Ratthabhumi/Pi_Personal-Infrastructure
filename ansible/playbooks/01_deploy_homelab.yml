@@ -50,7 +50,7 @@
 
     - name: 🐳 Deploy Unified Production Stack via Docker Compose
       ansible.builtin.command:
-        cmd: docker compose up -d --remove-orphans
+        cmd: docker compose up -d --pull always --remove-orphans
         chdir: /data/docker
       register: compose_output
       changed_when: "'Started' in compose_output.stdout or 'Recreated' in compose_output.stdout or 'Created' in compose_output.stdout"
