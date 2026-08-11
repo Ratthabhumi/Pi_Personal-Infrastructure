@@ -10,5 +10,5 @@ jobs:
       - name: Expand LVM via Docker
         run: |
           echo "Expanding LVM..."
-          docker run --rm --privileged -v /dev:/dev -v /run:/run alpine sh -c "apk add lvm2 e2fsprogs && lvextend -l +100%FREE /dev/mapper/ubuntu--vg-ubuntu--lv && resize2fs /dev/mapper/ubuntu--vg-ubuntu--lv"
+          docker run --rm --privileged -v /dev:/dev -v /run:/run -v /sys:/sys alpine sh -c "apk add --no-cache lvm2 e2fsprogs && lvextend -l +100%FREE /dev/mapper/ubuntu--vg-ubuntu--lv && resize2fs /dev/mapper/ubuntu--vg-ubuntu--lv"
           df -h /
