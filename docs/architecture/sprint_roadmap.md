@@ -56,6 +56,7 @@ In modern Site Reliability Engineering (SRE), deploying application containers b
 | **17** | **Advanced Log Aggregation**<br>Centralized logging so you never have to `docker logs` manually again. | • Grafana Loki<br>• Promtail (Log shipper) | **Loki**<br>**Promtail** | 2 Days | ⚪ *Planned* |
 | **18** | **Smart Home Automation**<br>IoT and smart device management localized to the Homelab. | • Home Assistant Core<br>• MQTT Broker | **Home Assistant** | 2-3 Days | ⚪ *Planned* |
 | **19** | **Threat Defense & IPS**<br>Network Intrusion Prevention System to block malicious IPs dynamically. | • CrowdSec<br>• Traefik Bouncer | **CrowdSec** | 2 Days | ⚪ *Planned* |
+| **20** | **Self-Hosted VPN Control Plane**<br>Complete independence from 3rd-party SaaS by self-hosting the Tailscale control server. | • Headscale Server<br>• Custom UI | **Headscale** | 2 Days | ⚪ *Planned* |
 
 ---
 
