@@ -46,8 +46,26 @@ In modern Site Reliability Engineering (SRE), deploying application containers b
 
 | Sprint | Objective | Deliverables | Key Technologies | Estimated Time | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **10** | **Kubernetes Production Homelab**<br>Migrate Docker Compose workloads to a lightweight Kubernetes cluster (K3s) with GitOps. | • K3s Cluster Setup<br>• ArgoCD for GitOps | **K3s / Kubernetes**<br>**ArgoCD** | Future Build | ⏸️ *On Hold* |
-| **11** | **Private AI Infrastructure**<br>Deploy local Large Language Models (LLMs) for private, offline AI assistance. | • Ollama<br>• Open-WebUI | **Ollama**<br>**Local LLMs** | Future Build | ⏸️ *On Hold* |
+| **10** | **Database as a Service (DBaaS)**<br>Centralized relational database for upcoming apps. | • PostgreSQL Server<br>• pgAdmin UI<br>• Automated daily dumps | **PostgreSQL**<br>**Docker** | 1-2 Days | ⚪ *Planned* |
+| **11** | **In-Memory Cache & Queue**<br>Centralized caching layer to speed up apps and handle background jobs. | • Redis Container | **Redis** | 1 Day | ⚪ *Planned* |
+| **12** | **Single Sign-On (SSO) & IAM**<br>Centralized authentication. Log in once to access all Homelab apps securely. | • Authelia or Authentik<br>• Traefik ForwardAuth | **Authelia**<br>**OIDC / SAML** | 2-3 Days | ⚪ *Planned* |
+| **13** | **Private Cloud Storage**<br>Self-hosted Google Drive alternative for file syncing and sharing. | • Nextcloud or Seafile<br>• Desktop/Mobile Sync | **Nextcloud**<br>**WebDAV** | 2 Days | ⚪ *Planned* |
+| **14** | **Self-Hosted Git Service**<br>Private code repository for local projects or mirroring GitHub. | • Gitea or Forgejo<br>• SSH Key Auth | **Gitea**<br>**Git** | 1 Day | ⚪ *Planned* |
+| **15** | **Knowledge Management**<br>Centralized documentation and wiki for the Homelab and projects. | • Wiki.js or Outline<br>• Markdown support | **Wiki.js**<br>**PostgreSQL** | 1 Day | ⚪ *Planned* |
+| **16** | **Advanced Log Aggregation**<br>Centralized logging so you never have to `docker logs` manually again. | • Grafana Loki<br>• Promtail (Log shipper) | **Loki**<br>**Promtail** | 2 Days | ⚪ *Planned* |
+| **17** | **Media & Entertainment Server**<br>Self-hosted Netflix/Spotify alternative for local network streaming. | • Jellyfin (Video)<br>• Navidrome (Audio) | **Jellyfin** | 1-2 Days | ⚪ *Planned* |
+| **18** | **Smart Home Automation**<br>IoT and smart device management localized to the Homelab. | • Home Assistant Core<br>• MQTT Broker | **Home Assistant** | 2-3 Days | ⚪ *Planned* |
+| **19** | **Disaster Recovery (Offsite)**<br>Automated encrypted backups to a remote cloud (e.g., Google Drive). | • Rclone integration<br>• Cron backup schedules | **Rclone**<br>**Restic** | 1-2 Days | ⚪ *Planned* |
+| **20** | **Threat Defense & IPS**<br>Network Intrusion Prevention System to block malicious IPs dynamically. | • CrowdSec<br>• Traefik Bouncer | **CrowdSec** | 2 Days | ⚪ *Planned* |
+
+---
+
+### 🟣 EXTRA SPRINT: Hardware Dependent
+*Status: Awaiting Hardware Upgrade (Minimum 16GB RAM recommended).*
+
+| Sprint | Objective | Deliverables | Key Technologies | Estimated Time | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **21** | **Private AI Infrastructure**<br>Deploy local Large Language Models (LLMs) for private, offline AI assistance. | • Ollama<br>• Open-WebUI | **Ollama**<br>**Local LLMs** | Future Build | ⏸️ *On Hold* |
 
 ---
 
