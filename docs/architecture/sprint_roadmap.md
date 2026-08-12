@@ -51,12 +51,11 @@ In modern Site Reliability Engineering (SRE), deploying application containers b
 | **12** | **Single Sign-On (SSO) & IAM**<br>Centralized authentication. Log in once to access all Homelab apps securely. | • Authelia or Authentik<br>• Traefik ForwardAuth | **Authelia**<br>**OIDC / SAML** | 2-3 Days | ⚪ *Planned* |
 | **13** | **Private Cloud Storage**<br>Self-hosted Google Drive alternative for file syncing and sharing. | • Nextcloud or Seafile<br>• Desktop/Mobile Sync | **Nextcloud**<br>**WebDAV** | 2 Days | ⚪ *Planned* |
 | **14** | **Self-Hosted Git Service**<br>Private code repository for local projects or mirroring GitHub. | • Gitea or Forgejo<br>• SSH Key Auth | **Gitea**<br>**Git** | 1 Day | ⚪ *Planned* |
-| **15** | **Knowledge Management**<br>Centralized documentation and wiki for the Homelab and projects. | • Wiki.js or Outline<br>• Markdown support | **Wiki.js**<br>**PostgreSQL** | 1 Day | ⚪ *Planned* |
-| **16** | **Advanced Log Aggregation**<br>Centralized logging so you never have to `docker logs` manually again. | • Grafana Loki<br>• Promtail (Log shipper) | **Loki**<br>**Promtail** | 2 Days | ⚪ *Planned* |
-| **17** | **Media & Entertainment Server**<br>Self-hosted Netflix/Spotify alternative for local network streaming. | • Jellyfin (Video)<br>• Navidrome (Audio) | **Jellyfin** | 1-2 Days | ⚪ *Planned* |
+| **15** | **Disaster Recovery (Offsite)**<br>Automated encrypted backups to a remote cloud (e.g., Google Drive) for critical app data. | • Rclone integration<br>• Cron backup schedules | **Rclone**<br>**Restic** | 1-2 Days | ⚪ *Planned* |
+| **16** | **Knowledge Management**<br>Centralized documentation and wiki for the Homelab and projects. | • Wiki.js or Outline<br>• Markdown support | **Wiki.js**<br>**PostgreSQL** | 1 Day | ⚪ *Planned* |
+| **17** | **Advanced Log Aggregation**<br>Centralized logging so you never have to `docker logs` manually again. | • Grafana Loki<br>• Promtail (Log shipper) | **Loki**<br>**Promtail** | 2 Days | ⚪ *Planned* |
 | **18** | **Smart Home Automation**<br>IoT and smart device management localized to the Homelab. | • Home Assistant Core<br>• MQTT Broker | **Home Assistant** | 2-3 Days | ⚪ *Planned* |
-| **19** | **Disaster Recovery (Offsite)**<br>Automated encrypted backups to a remote cloud (e.g., Google Drive). | • Rclone integration<br>• Cron backup schedules | **Rclone**<br>**Restic** | 1-2 Days | ⚪ *Planned* |
-| **20** | **Threat Defense & IPS**<br>Network Intrusion Prevention System to block malicious IPs dynamically. | • CrowdSec<br>• Traefik Bouncer | **CrowdSec** | 2 Days | ⚪ *Planned* |
+| **19** | **Threat Defense & IPS**<br>Network Intrusion Prevention System to block malicious IPs dynamically. | • CrowdSec<br>• Traefik Bouncer | **CrowdSec** | 2 Days | ⚪ *Planned* |
 
 ---
 
