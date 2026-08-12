@@ -96,3 +96,9 @@ Before closing Sprint 1 and moving to Sprint 2, the following conditions must be
 - [x] `.github/workflows/cd.yml` active to automatically deploy verified code to Homelab via self-hosted runner.
 - [x] `.yamllint` configured to respect Windows/DevOps styling preferences without blocking CI.
 - [x] Self-hosted GitHub Actions Runner installed and verified running natively on the `mew@homelab` server.
+
+### 🏆 Sprint 9 Definition of Done (Completed)
+- [x] Deploy `gethomepage/homepage` as the unified entry portal for all self-hosted applications.
+- [x] Configure real-time telemetry widgets (CPU, RAM, M.2 SSD, HDD) by mounting the host Docker socket.
+- [x] Integrate live API statistics from Uptime Kuma, AdGuard Home, and Portainer directly into the dashboard.
+- [x] Establish secure, seamless local access via Traefik routing (`http://homepage.homelab.lan` or Tailscale IP).
