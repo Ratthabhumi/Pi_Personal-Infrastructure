@@ -46,7 +46,7 @@ In modern Site Reliability Engineering (SRE), deploying application containers b
 
 | Sprint | Objective | Deliverables | Key Technologies | Estimated Time | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **10** | **Database as a Service (DBaaS)**<br>Centralized relational database for upcoming apps. | • PostgreSQL Server<br>• pgAdmin UI<br>• Automated daily dumps | **PostgreSQL**<br>**Docker** | 1-2 Days | ⚪ *Planned* |
+| **10** | **Database as a Service (DBaaS)**<br>Centralized relational database for upcoming apps. | • PostgreSQL Server<br>• pgAdmin UI<br>• Automated daily dumps | **PostgreSQL**<br>**Docker** | 1-2 Days | 🏆 **COMPLETED** |
 | **11** | **In-Memory Cache & Queue**<br>Centralized caching layer to speed up apps and handle background jobs. | • Redis Container | **Redis** | 1 Day | ⚪ *Planned* |
 | **12** | **Single Sign-On (SSO) & IAM**<br>Centralized authentication. Log in once to access all Homelab apps securely. | • Authelia or Authentik<br>• Traefik ForwardAuth | **Authelia**<br>**OIDC / SAML** | 2-3 Days | ⚪ *Planned* |
 | **13** | **Private Cloud Storage**<br>Self-hosted Google Drive alternative for file syncing and sharing. | • Nextcloud or Seafile<br>• Desktop/Mobile Sync | **Nextcloud**<br>**WebDAV** | 2 Days | ⚪ *Planned* |
