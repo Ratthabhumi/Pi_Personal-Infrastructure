@@ -37,6 +37,7 @@ In modern Site Reliability Engineering (SRE), deploying application containers b
 | **06** | **Self-Hosted Apps & Advanced Monitoring**<br>Vaultwarden, AdGuard Home, Prometheus, VictoriaMetrics, Grafana, Alerting | • Vaultwarden Password Manager<br>• Advanced Alerting (Telegram/Discord) | **Self-Hosting**<br>**Alertmanager** | 2-3 Days | 🏆 **COMPLETED** |
 | **07** | **Infrastructure as Code (IaC)**<br>Codify the entire Homelab infrastructure using Ansible and Terraform. | • Ansible playbooks for OS & Apps<br>• Terraform for Cloudflare DNS (Template) | **Ansible**<br>**Terraform** | 1-2 Days | 🏆 **COMPLETED** |
 | **08** | **Continuous Integration / Deployment (CI/CD)**<br>Automate testing and deployment pipelines using GitHub Actions. | • GitHub Actions pipeline<br>• automated testing & linting | **GitHub Actions**<br>**CI/CD** | 1-2 Days | 🏆 **COMPLETED** |
+| **09** | **Homelab Dashboard Portal**<br>Deploy a lightweight dashboard (`gethomepage/homepage`) to serve as the unified entry point for all self-hosted applications, optimized for 4GB RAM. | • Homepage Dashboard<br>• Unified Traefik Routing | **Homepage**<br>**Docker** | 1 Day | 🏆 **COMPLETED** |
 
 ---
 
@@ -45,7 +46,6 @@ In modern Site Reliability Engineering (SRE), deploying application containers b
 
 | Sprint | Objective | Deliverables | Key Technologies | Estimated Time | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **09** | **Homelab Dashboard Portal**<br>Deploy a lightweight dashboard (`gethomepage/homepage`) to serve as the unified entry point for all self-hosted applications, optimized for 4GB RAM. | • Homepage Dashboard<br>• Unified Traefik Routing | **Homepage**<br>**Docker** | 1 Day | 🏆 **COMPLETED** |
 | **10** | **Kubernetes Production Homelab**<br>Migrate Docker Compose workloads to a lightweight Kubernetes cluster (K3s) with GitOps. | • K3s Cluster Setup<br>• ArgoCD for GitOps | **K3s / Kubernetes**<br>**ArgoCD** | Future Build | ⏸️ *On Hold* |
 | **11** | **Private AI Infrastructure**<br>Deploy local Large Language Models (LLMs) for private, offline AI assistance. | • Ollama<br>• Open-WebUI | **Ollama**<br>**Local LLMs** | Future Build | ⏸️ *On Hold* |
 
