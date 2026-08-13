@@ -29,3 +29,7 @@
         icon: pgadmin.png
         href: http://pgadmin.mew.lab
         description: PostgreSQL Database Administration
+    - Redis Cache:
+        icon: redis.png
+        href: http://kuma.mew.lab
+        description: In-Memory Cache & Queue Layer

@@ -273,4 +273,31 @@ sudo resize2fs /dev/mapper/ubuntu--vg-ubuntu--lv
   ```
 
 ---
+
+## ⚡ 10. คัมภีร์ระบบแคชความเร็วสูง (Sprint 11: Redis In-Memory Cache & Queue)
+
+### 🏛️ สถาปัตยกรรม Redis ประจำบ้าน (Centralized Redis Cache)
+* **Image & Resource:** `redis:7-alpine` กิน RAM ต่ำมากเพียง **~15MB**
+* **Memory Limits:** ตั้งค่าเพดานความจำไม่เกิน 256MB (`--maxmemory 256mb`) และลบข้อมูลเก่าอัตโนมัติเมื่อเต็ม (`--maxmemory-policy allkeys-lru`)
+* **Persistence:** เปิด Append-Only File (`--appendonly yes`) เก็บประวัติแคชลง `/data/docker/redis/data`
+* **Security & Network:** อยู่ในเครือข่าย `homelab_internal` เท่านั้น (พอร์ต `6379`) ป้องกันคนภายนอกเข้าถึง 100%
+
+### 🔌 รูปแบบการเชื่อมต่อสำหรับแอปพลิเคชัน (Connection Strings)
+* **Internal Host:** `redis:6379`
+* **Connection URI:** `redis://:admin123@redis:6379/0` (หรือตามรหัสผ่านใน `.env`)
+
+### 🧪 คำสั่งทดสอบและตรวจสอบ Redis ผ่าน Terminal (SRE Commands)
+```bash
+# 1. ทดสอบการตอบรับ (Ping / Pong)
+docker exec -it redis redis-cli -a admin123 ping
+
+# 2. ทดสอบเขียนและอ่านข้อมูล (Set / Get Test)
+docker exec -it redis redis-cli -a admin123 set test_key "homelab_redis_ok"
+docker exec -it redis redis-cli -a admin123 get test_key
+
+# 3. ดูสถิติการใช้ RAM และจำนวน Key ในระบบ
+docker exec -it redis redis-cli -a admin123 info memory
+```
+
+---
 *🚀 **Keep Building, Keep Escalating, and Never Stop Learning!** 🚀*

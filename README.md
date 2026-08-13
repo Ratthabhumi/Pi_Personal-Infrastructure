@@ -5,7 +5,7 @@
 ![Networking: Tailscale Mesh](https://img.shields.io/badge/Networking-Tailscale%20Mesh-orange?style=for-the-badge)
 ![CI Status](https://img.shields.io/github/actions/workflow/status/Ratthabhumi/Pi_Personal-Infrastructure/ci.yml?label=CI%20Linting&style=for-the-badge)
 ![CD Status](https://img.shields.io/github/actions/workflow/status/Ratthabhumi/Pi_Personal-Infrastructure/cd.yml?label=CD%20Deploy&style=for-the-badge)
-![Project Status: Sprint 10 DBaaS Active](https://img.shields.io/badge/Project%20Status-Sprint%2010%20(DBaaS)%20COMPLETED-success?style=for-the-badge)
+![Project Status: Sprint 11 (Redis) Active](https://img.shields.io/badge/Project%20Status-Sprint%2011%20(Redis)%20COMPLETED-success?style=for-the-badge)
 
 ---
 
@@ -43,8 +43,8 @@ We strictly abide by modern **DevOps, Site Reliability Engineering (SRE), and Pl
 | Sprint | Objective | Deliverables | Key Technologies | Status |
 | :---: | :--- | :--- | :--- | :---: |
 | **10** | **Database as a Service (DBaaS)** | Centralized PostgreSQL 16 server, pgAdmin 4 Auto-Provisioned Web UI, automated multi-tier daily backup dumps | **PostgreSQL 16**, **pgAdmin 4**, **Docker** | 🏆 **COMPLETED** |
-| **11** | **In-Memory Cache & Queue** | Centralized Redis in-memory cache layer to speed up upcoming apps and background job workers | **Redis** | ⚪ *Next Up* |
-| **12** | **Single Sign-On (SSO) & IAM** | Centralized authentication, 2FA/FIDO2, Traefik ForwardAuth integration | **Authelia**, **OIDC / SAML** | ⚪ *Planned* |
+| **11** | **In-Memory Cache & Queue** | Centralized Redis in-memory cache layer to speed up upcoming apps and background job workers | **Redis 7 Alpine** | 🏆 **COMPLETED** |
+| **12** | **Single Sign-On (SSO) & IAM** | Centralized authentication, 2FA/FIDO2, Traefik ForwardAuth integration | **Authelia**, **OIDC / SAML** | ⚪ *Next Up* |
 | **13** | **Private Cloud Storage** | Self-hosted cloud storage with desktop & mobile sync (Nextcloud) | **Nextcloud**, **WebDAV** | ⚪ *Planned* |
 | **14** | **Self-Hosted Git Service** | Private lightweight Git repository for local projects or GitHub mirroring | **Gitea / Forgejo**, **Git** | ⚪ *Planned* |
 | **15** | **Disaster Recovery (Offsite)** | Encrypted offsite cloud backups to remote cloud storage via Rclone schedules | **Rclone**, **Restic** | ⚪ *Planned* |
@@ -79,6 +79,7 @@ We strictly abide by modern **DevOps, Site Reliability Engineering (SRE), and Pl
 | **Uptime Kuma** | `http://kuma.mew.lab` | Live Service Monitoring & Alerting | Set on first login |
 | **pgAdmin 4** | `http://pgadmin.mew.lab` | Centralized PostgreSQL Web Administration | `admin@mew.lab` / `admin123` |
 | **PostgreSQL** | `postgres:5432` *(Internal Network)* | Relational Database Engine (DBaaS) | `admin` / `admin123` (`homelab` db) |
+| **Redis Cache** | `redis:6379` *(Internal Network)* | In-Memory Cache & Message Queue Layer | `admin123` |
 
 ---
 

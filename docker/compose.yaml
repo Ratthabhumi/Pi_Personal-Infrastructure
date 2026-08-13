@@ -322,3 +322,22 @@ services:
       - /data/docker/postgres/backups:/backups
     networks:
       - internal
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-admin123} --maxmemory 256mb --maxmemory-policy allkeys-lru
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - TZ=${TZ:-Asia/Bangkok}
+    volumes:
+      - /data/docker/redis/data:/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-admin123}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
