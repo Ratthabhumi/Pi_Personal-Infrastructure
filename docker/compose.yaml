@@ -296,6 +296,7 @@ services:
       - internal
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=homelab_proxy"
       - "traefik.http.routers.pgadmin.rule=Host(`pgadmin.mew.lab`)"
       - "traefik.http.services.pgadmin.loadbalancer.server.port=8080"
 
