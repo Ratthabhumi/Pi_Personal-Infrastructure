@@ -272,7 +272,7 @@ services:
     environment:
       - TZ=${TZ:-Asia/Bangkok}
       - POSTGRES_USER=${POSTGRES_USER:-admin}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-admin123}
       - POSTGRES_DB=${POSTGRES_DB:-homelab}
     volumes:
       - /data/docker/postgres/data:/var/lib/postgresql/data
@@ -287,8 +287,8 @@ services:
       - no-new-privileges:true
     environment:
       - TZ=${TZ:-Asia/Bangkok}
-      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
-      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL:-admin@mew.lab}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD:-admin123}
     volumes:
       - /data/docker/pgadmin/data:/var/lib/pgadmin
     networks:
@@ -309,7 +309,7 @@ services:
       - TZ=${TZ:-Asia/Bangkok}
       - POSTGRES_HOST=postgres
       - POSTGRES_USER=${POSTGRES_USER:-admin}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-admin123}
       - POSTGRES_DB=${POSTGRES_DB:-homelab}
       - SCHEDULE=@daily
       - BACKUP_KEEP_DAYS=7
