@@ -291,6 +291,7 @@ services:
       - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD:-admin123}
     volumes:
       - /data/docker/pgadmin/data:/var/lib/pgadmin
+      - /data/docker/pgadmin/config/servers.json:/pgadmin4/servers.json:ro
     networks:
       - proxy
       - internal
