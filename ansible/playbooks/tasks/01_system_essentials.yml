@@ -13,6 +13,10 @@
     upgrade: dist
     cache_valid_time: 3600
     dpkg_options: 'force-confdef,force-confold'
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+    NEEDRESTART_MODE: a
+    NEEDRESTART_SUSPEND: 1
 
 - name: Install SRE diagnostics and Platform Engineering core packages
   ansible.builtin.apt:
