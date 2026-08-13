@@ -90,6 +90,8 @@ git pull origin main
 | **AdGuard Home** | `http://adguard.homelab.lan`<br>`http://100.116.167.3:8081` | ศูนย์ควบคุม DNS และหลุมดำดูดโฆษณา (Ad-blocker) สำหรับทุกอุปกรณ์ในบ้าน | *ตั้งค่ารหัสผ่านใหม่ในการเข้าใช้งานครั้งแรก* |
 | **Vaultwarden** | `https://vaultwarden.homelab.ts.net` | ตู้เซฟรหัสผ่านส่วนตัวสุดปลอดภัย (ต้องเข้าผ่าน HTTPS เสมอ เพื่อให้ระบบเข้ารหัสทำงานได้) | *ตั้งค่ารหัสผ่านใหม่ในการเข้าใช้งานครั้งแรก* |
 | **Uptime Kuma** | `http://kuma.homelab.lan` | ยามเฝ้าระวังเซิร์ฟเวอร์ คอยแจ้งเตือนผ่าน Telegram/Discord ทันทีถ้าระบบหรือเน็ตเวิร์กล่ม | *ตั้งค่ารหัสผ่านใหม่ในการเข้าใช้งานครั้งแรก* |
+| **pgAdmin 4** | `http://pgadmin.mew.lab` | แดชบอร์ดบริหารจัดการฐานข้อมูลกลาง (PostgreSQL DBaaS) | **Email:** `admin@mew.lab`<br>**Pass:** `admin123` |
+| **PostgreSQL** | `postgres:5432` *(Internal)* | ฐานข้อมูล Relational Database กลางสำหรับแอปทั้งบ้าน | **User:** `admin`<br>**DB:** `homelab` |
 
 ---
 
