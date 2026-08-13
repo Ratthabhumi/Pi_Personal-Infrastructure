@@ -7,16 +7,16 @@
   community.general.timezone:
     name: "{{ target_timezone }}"
 
-- name: Update apt cache and upgrade base system packages
-  ansible.builtin.apt:
-    update_cache: true
-    upgrade: dist
-    cache_valid_time: 3600
-    dpkg_options: 'force-confdef,force-confold'
-  environment:
-    DEBIAN_FRONTEND: noninteractive
-    NEEDRESTART_MODE: a
-    NEEDRESTART_SUSPEND: 1
+# - name: Update apt cache and upgrade base system packages
+#   ansible.builtin.apt:
+#     update_cache: true
+#     upgrade: dist
+#     cache_valid_time: 3600
+#     dpkg_options: 'force-confdef,force-confold'
+#   environment:
+#     DEBIAN_FRONTEND: noninteractive
+#     NEEDRESTART_MODE: a
+#     NEEDRESTART_SUSPEND: 1
 
 - name: Install SRE diagnostics and Platform Engineering core packages
   ansible.builtin.apt:
