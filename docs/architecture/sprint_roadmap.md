@@ -120,3 +120,10 @@ Before closing Sprint 1 and moving to Sprint 2, the following conditions must be
 - [x] Configure real-time telemetry widgets (CPU, RAM, M.2 SSD, HDD) by mounting the host Docker socket.
 - [x] Integrate live API statistics from Uptime Kuma, AdGuard Home, and Portainer directly into the dashboard.
 - [x] Establish secure, seamless local access via Traefik routing (`http://homepage.homelab.lan` or Tailscale IP).
+
+### 🏆 Sprint 10 Definition of Done (Completed)
+- [x] Deploy PostgreSQL 16 Alpine (`postgres`) on internal network as centralized DBaaS for upcoming homelab apps.
+- [x] Deploy pgAdmin 4 (`pgadmin`) with Traefik ingress routing (`http://pgadmin.mew.lab` via port 8080).
+- [x] Implement automated `servers.json` auto-provisioning to register `Homelab PostgreSQL` database automatically.
+- [x] Deploy automated daily backup container (`postgres-backup`) with multi-tier retention policy (7 days, 4 weeks, 6 months).
+- [x] Automate directory permissions (UID 70 for PostgreSQL, UID 5050 for pgAdmin) via Ansible deploy playbook.

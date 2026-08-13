@@ -243,4 +243,34 @@ sudo resize2fs /dev/mapper/ubuntu--vg-ubuntu--lv
    * หากเซิร์ฟเวอร์ไฟดับ หรือเน็ตล่มตายไปทั้งเครื่องเกิน 10 นาที (สัญญาณหายไป) เว็บคนนอกจะส่ง **อีเมล** แจ้งเตือนฉุกเฉิน
 
 ---
+
+## 🐘 9. คัมภีร์ระบบฐานข้อมูลกลาง (Sprint 10: PostgreSQL DBaaS & pgAdmin)
+
+### 🏛️ สถาปัตยกรรม DBaaS ในบ้านเรา (Centralized DBaaS Architecture)
+1. **PostgreSQL 16 Alpine (`postgres`):**
+   * เก็บข้อมูลบน HDD: `/data/docker/postgres/data`
+   * อยู่ในวงแลน `homelab_internal` เท่านั้น (ไม่เปิดพอร์ต 5432 ออกสู่โลกภายนอก ปลอดภัย 100%)
+   * รันด้วยสิทธิ์ Linux System UID **`70:70`** (Alpine PostgreSQL User)
+2. **pgAdmin 4 Web Console (`pgadmin`):**
+   * เข้าใช้งาน: `http://pgadmin.mew.lab` (พอร์ตภายในคือ **`8080`**)
+   * **Auto-Provisioning (`servers.json`):** ฝังไฟล์คอนฟิกไว้ที่ `/data/docker/pgadmin/config/servers.json` แมปเข้า `/pgadmin4/servers.json:ro` เพื่อเชื่อมต่อฐานข้อมูล `postgres` ให้อัตโนมัติ
+   * บัญชีเข้าใช้งาน: `admin@mew.lab` / `admin123`
+3. **Automated Backup System (`postgres-backup`):**
+   * สำรองข้อมูลลงโฟลเดอร์ `/data/docker/postgres/backups` ทุกวันเวลาเที่ยงคืน
+   * นโยบายการเก็บรักษา: รายวัน 7 วัน, รายสัปดาห์ 4 สัปดาห์, รายเดือน 6 เดือน
+
+### 🚨 ปัญหาที่พบบ่อยและวิธีแก้งาน DBaaS (DBaaS Troubleshooting & Gotchas)
+* **ปัญหา Bad Gateway บน pgAdmin:** ใน Docker Image pgAdmin 4 เวอร์ชันใหม่ ตัวเว็บเซิร์ฟเวอร์ (Gunicorn) รันบนพอร์ต **`8080`** (ไม่ใช่ 80) ป้ายกำกับ Traefik ต้องชี้ไปที่ `traefik.http.services.pgadmin.loadbalancer.server.port=8080` เสมอ
+* **ปัญหา Traefik หลุดการเชื่อมต่อกับ Docker Daemon:** หาก Traefik ค้างค่าพอร์ตเก่าและขึ้น log `Cannot connect to the Docker daemon at unix:///var/run/docker.sock` ให้สั่ง **`docker restart traefik`** 1 ครั้งเพื่อให้ Traefik อ่าน Docker Socket ใหม่
+* **ปัญหา Permission Denied บน PostgreSQL (`global/pg_filenode.map`):** โฟลเดอร์ `/data/docker/postgres/data` ต้องเป็นของ User UID `70:70` เสมอ หากเผลอไปเปลี่ยนสิทธิ์ ให้รัน:
+  ```bash
+  docker run --rm -v /data/docker/postgres/data:/data alpine chown -R 70:70 /data
+  docker restart postgres
+  ```
+* **คำสั่ง Import Server เข้า pgAdmin ย้อนหลัง (CLI Command):**
+  ```bash
+  docker exec -it pgadmin /venv/bin/python /pgadmin4/setup.py load-servers /pgadmin4/servers.json --user admin@mew.lab
+  ```
+
+---
 *🚀 **Keep Building, Keep Escalating, and Never Stop Learning!** 🚀*

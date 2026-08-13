@@ -5,13 +5,13 @@
 ![Networking: Tailscale Mesh](https://img.shields.io/badge/Networking-Tailscale%20Mesh-orange?style=for-the-badge)
 ![CI Status](https://img.shields.io/github/actions/workflow/status/Ratthabhumi/Pi_Personal-Infrastructure/ci.yml?label=CI%20Linting&style=for-the-badge)
 ![CD Status](https://img.shields.io/github/actions/workflow/status/Ratthabhumi/Pi_Personal-Infrastructure/cd.yml?label=CD%20Deploy&style=for-the-badge)
-![Project Status: Phase 1 Completed](https://img.shields.io/badge/Project%20Status-Phase%201%20(Docker)%20COMPLETED-success?style=for-the-badge)
+![Project Status: Phase 1 Completed & Sprint 10 DBaaS Active](https://img.shields.io/badge/Project%20Status-Sprint%2010%20(DBaaS)%20COMPLETED-success?style=for-the-badge)
 
 ## 📌 Vision & Philosophy
 This repository serves as the **Single Source of Truth (SSOT)** for deploying, maintaining, monitoring, and scaling a personal cloud and Artificial Intelligence infrastructure. 
 
-> 🎉 **Update (August 2026): PHASE 1 COMPLETED & HOMEPAGE DEPLOYED**
-> The infrastructure has been successfully deployed as a highly optimized, lightweight Docker Compose stack, tailor-made to run efficiently on an Acer Aspire V13 (4GB RAM). Features include a Zero-Trust Tailscale network, UFW firewall, automated self-hosted CI/CD via GitHub Actions, and an expansive self-hosted application suite (Vaultwarden, AdGuard, Grafana, Homepage Dashboard). We also implemented advanced storage management (LVM Expansion) and automated GitOps rolling updates (`--pull always`). Phase 2 (Kubernetes & Local LLMs) is currently on hold pending a hardware upgrade (16GB+ RAM recommended).
+> 🎉 **Update (August 2026): PHASE 1 COMPLETED & SPRINT 10 (DBaaS) OPERATIONAL**
+> The infrastructure has been successfully deployed as a highly optimized, lightweight Docker Compose stack, tailor-made to run efficiently on an Acer Aspire V13 (4GB RAM). Features include a Zero-Trust Tailscale network, UFW firewall, automated self-hosted CI/CD via GitHub Actions, an expansive self-hosted application suite (Vaultwarden, AdGuard, Grafana, Homepage Dashboard), and a full **Database as a Service (PostgreSQL 16, pgAdmin 4 Auto-Provisioned, and Automated Multi-Tier Backup)**.
 
 We strictly abide by modern **DevOps, Site Reliability Engineering (SRE), and Platform Engineering** practices:
 1. **Cattle, Not Pets**: Servers and configurations are completely modular, automated, and ephemeral. Should any compute instance fail, rebuilding it takes minutes via code.
@@ -31,7 +31,8 @@ homelab/
 │   └── playbooks/                # Step-by-step OS harding, package & docker installers
 ├── terraform/                    # [External Infrastructure] Cloudflare DNS Management (Template)
 ├── docker/                       # [Compute / Container Layer] Monolithic Compose Configuration
-│   ├── compose.yaml              # Unified declarative stack (Traefik, Observability, Vaultwarden, AdGuard, Kuma)
+│   ├── compose.yaml              # Unified declarative stack (Traefik, DBaaS, Observability, Vaultwarden, AdGuard)
+│   ├── pgadmin/config/           # Auto-provisioning declarative database definitions (servers.json)
 │   └── ai-platform/              # (Future) Local LLMs, Vector DBs, Worker nodes & Inference engines
 ├── kubernetes/                   # [Orchestration Layer] Future declarative K3s / GitOps Helm deployment
 ├── scripts/                      # Utility scripts (Automated Restic backups, Self-healing, Document bots)
