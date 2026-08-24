@@ -31,8 +31,13 @@ webauthn:
   disable: false
   display_name: "Homelab IAM"
   attestation_conveyance_preference: "none"
-  user_verification: "preferred"
+  selection_criteria:
+    user_verification: "preferred"
   timeout: "60s"
+
+identity_validation:
+  reset_password:
+    jwt_secret: "a_very_secure_jwt_secret_for_homelab_sso_reset_password_2026_long_key"
 
 authentication_backend:
   password_reset:
@@ -66,12 +71,12 @@ session:
   remember_me: "1M"
   cookies:
     - domain: "mew.lab"
-      authelia_url: "http://auth.mew.lab"
-      default_redirection_url: "http://home.mew.lab"
+      authelia_url: "https://auth.mew.lab"
+      default_redirection_url: "https://home.mew.lab"
   redis:
     host: "redis"
     port: 6379
-    password: "${REDIS_PASSWORD:-admin123}"
+    password: "admin123"
     database_index: 1
 
 storage:
@@ -79,8 +84,8 @@ storage:
     address: "tcp://postgres:5432"
     database: "homelab"
     schema: "public"
-    username: "${POSTGRES_USER:-admin}"
-    password: "${POSTGRES_PASSWORD:-admin123}"
+    username: "admin"
+    password: "admin123"
     timeout: "5s"
 
 notifier:
