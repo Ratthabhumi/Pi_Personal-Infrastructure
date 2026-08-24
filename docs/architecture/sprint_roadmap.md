@@ -147,4 +147,5 @@ Before closing Sprint 1 and moving to Sprint 2, the following conditions must be
 - [x] Integrate Nextcloud with PostgreSQL 16 DBaaS (`homelab` database) and Redis 7 memory cache (`redis:6379`, DB index 2 for transactional locking).
 - [x] Configure Traefik Ingress routing for `http://cloud.mew.lab` with auto-TLS and CalDAV/CardDAV redirection middlewares.
 - [x] Automate Nextcloud directory provisioning and UID `33:33` (`www-data`) permissions via Ansible deploy playbook.
-- [x] Add Nextcloud tile to Homepage dashboard and document maintenance OCC commands in CheatSheet.md.
+- [x] Configure `trusted_domains` and establish 24/7 HTTP status health monitoring in Uptime Kuma (`http://nextcloud/status.php`).
+- [x] Add Nextcloud tile to Homepage dashboard with responsive 4-column grid layout and document maintenance OCC commands in CheatSheet.md.
