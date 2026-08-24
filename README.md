@@ -69,18 +69,18 @@ We strictly abide by modern **DevOps, Site Reliability Engineering (SRE), and Pl
 
 | Service | Internal Web URL / Endpoint | Purpose | Credentials / Access |
 | :--- | :--- | :--- | :--- |
-| **Homepage** | `http://home.mew.lab` | Central Homelab Dashboard Portal | Public Local / Tailscale |
-| **Portainer CE** | `http://portainer.mew.lab` | Docker Container Visual Management | Set on first login |
-| **Grafana** | `http://grafana.mew.lab` | Metrics & Health Telemetry Visualization | `admin` / `admin123` |
+| **Homepage** | `http://home.mew.lab` *(https)* | Central Homelab Dashboard Portal | Public Local / Tailscale |
+| **Portainer CE** | `http://portainer.mew.lab` *(https)* | Docker Container Visual Management | 🛡️ **Guarded by Authelia SSO** |
+| **Grafana** | `http://grafana.mew.lab` *(https)* | Metrics & Health Telemetry Visualization | `admin` / `admin123` |
 | **VictoriaMetrics** | `http://vmetrics.mew.lab` | High-Performance Time-Series Database | Internal / Prometheus compatible |
-| **Traefik** | `http://traefik.mew.lab` | Edge Routing & Ingress Dashboard | Built-in API |
-| **AdGuard Home** | `http://adguard.mew.lab` | Network DNS & Ad-Blocker | Set on first login |
+| **Traefik** | `http://traefik.mew.lab` *(https)* | Edge Routing & Ingress Dashboard | 🛡️ **Guarded by Authelia SSO** |
+| **AdGuard Home** | `http://adguard.mew.lab` *(https)* | Network DNS & Ad-Blocker | Set on first login |
 | **Vaultwarden** | `https://vaultwarden.homelab.ts.net` | Zero-Trust Password Vault (Tailscale HTTPS) | Set on first login |
-| **Uptime Kuma** | `http://kuma.mew.lab` | Live Service Monitoring & Alerting | Set on first login |
-| **pgAdmin 4** | `http://pgadmin.mew.lab` | Centralized PostgreSQL Web Administration | `admin@mew.lab` / `admin123` |
+| **Uptime Kuma** | `http://kuma.mew.lab` *(https)* | Live Service Monitoring & Alerting | 🛡️ **Guarded by Authelia SSO** |
+| **pgAdmin 4** | `http://pgadmin.mew.lab` *(https)* | Centralized PostgreSQL Web Administration | 🛡️ **Guarded by Authelia SSO** |
 | **PostgreSQL** | `postgres:5432` *(Internal Network)* | Relational Database Engine (DBaaS) | `admin` / `admin123` (`homelab` db) |
 | **Redis Cache** | `redis:6379` *(Internal Network)* | In-Memory Cache & Message Queue Layer | `admin123` |
-| **Authelia SSO** | `http://auth.mew.lab` | Centralized Single Sign-On & 2FA Gateway | `admin` / `admin123` *(or OTP)* |
+| **Authelia SSO** | `http://auth.mew.lab` *(https)* | Centralized Single Sign-On & 2FA Gateway | `admin` / `password` |
 
 ---
 

@@ -312,7 +312,13 @@ docker exec -it redis redis-cli -a admin123 info memory
 * **User Store:** บัญชีผู้ใช้บันทึกในรูปแบบไฟล์ `/data/docker/authelia/config/users_database.yml` เข้ารหัสผ่านด้วยอัลกอริทึมระดับสูงสุด **Argon2id**
 
 ### 🪄 วิธีเสกคุ้มกันหน้าเว็บใดๆ ด้วย Authelia (Traefik ForwardAuth Magic)
-หากต้องการให้แอปพลิเคชันใดๆ ใน `compose.yaml` โดนบังคับล็อกอิน 2FA ผ่าน Authelia ก่อนเข้าถึงหน้าเว็บ ให้เพิ่มบรรทัดนี้ลงใน `labels` ของตู้ที่ต้องการ:
+บริการสำคัญต่อไปนี้ได้รับการคุ้มกันด้วย Authelia ForwardAuth เรียบร้อยแล้ว:
+* 🐳 **Portainer:** `http://portainer.mew.lab`
+* 🚦 **Traefik Dashboard:** `http://traefik.mew.lab`
+* 🐘 **pgAdmin 4:** `http://pgadmin.mew.lab`
+* 🩺 **Uptime Kuma:** `http://kuma.mew.lab`
+
+หากต้องการให้แอปพลิเคชันใดๆ ใน `compose.yaml` โดนบังคับล็อกอินผ่าน Authelia ก่อนเข้าถึงหน้าเว็บ ให้เพิ่มบรรทัดนี้ลงใน `labels` ของตู้ที่ต้องการ:
 ```yaml
     labels:
       - "traefik.http.routers.<app-name>.middlewares=authelia@docker"
@@ -331,6 +337,9 @@ docker exec -it authelia authelia crypto hash generate argon2 --password 'YourNe
 
 # 4. ดูไฟล์การแจ้งเตือน OTP / ลิงก์ยืนยันตัวตน 2FA
 cat /data/docker/authelia/config/notification.txt
+
+# 5. คำสั่งรีเซ็ตรหัสผ่าน Uptime Kuma ฉุกเฉินผ่าน CLI
+docker exec -it uptime-kuma npm run reset-password
 ```
 
 ---

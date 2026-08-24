@@ -137,7 +137,7 @@ Before closing Sprint 1 and moving to Sprint 2, the following conditions must be
 
 ### 🏆 Sprint 12 Definition of Done (Completed)
 - [x] Deploy Authelia SSO & IAM (`authelia`) container integrated with PostgreSQL 16 DBaaS and Redis 7 session store.
-- [x] Establish Traefik Ingress routing for `http://auth.mew.lab` via port 9091.
-- [x] Configure declarative user accounts (`admin`, `mew`) with Argon2id password hashing and role groups (`admins`, `devops`).
-- [x] Create reusable Traefik ForwardAuth middleware (`authelia@docker`) to protect homelab web applications.
+- [x] Establish Traefik Ingress routing for `http://auth.mew.lab` via port 9091 with automatic HTTP-to-HTTPS upgrade and auto-TLS.
+- [x] Configure declarative user accounts (`admin`, `mew`) with live-generated Argon2id password hashing.
+- [x] Create reusable Traefik ForwardAuth middleware (`authelia@docker`) and apply perimeter protection to Portainer, Traefik Dashboard, pgAdmin 4, and Uptime Kuma.
 - [x] Automate Authelia configuration permissions via Ansible and integrate service tile into Homepage dashboard.
