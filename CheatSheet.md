@@ -320,13 +320,16 @@ docker exec -it redis redis-cli -a admin123 info memory
 
 ### 🧪 คำสั่งทดสอบและตรวจสอบ Authelia ผ่าน Terminal (SRE Commands)
 ```bash
-# 1. ทดสอบว่า Authelia ตอบรับและตรวจสอบสถานะ Healthcheck
-docker exec -it authelia authelia healthcheck
+# 1. ทดสอบว่า Authelia โหลดและตรวจสอบคอนฟิกถูกต้องสมบูรณ์
+docker exec -it authelia authelia config validate --config /config/configuration.yml
 
-# 2. คำสั่งสร้างรหัสผ่านแฮช Argon2id สำหรับผู้ใช้ใหม่
+# 2. ตรวจสอบ Endpoint API Health ผ่านเครือข่าย Traefik
+docker exec -it traefik wget -qO- http://authelia:9091/api/health
+
+# 3. คำสั่งสร้างรหัสผ่านแฮช Argon2id สำหรับผู้ใช้ใหม่
 docker exec -it authelia authelia crypto hash generate argon2 --password 'YourNewPasswordHere'
 
-# 3. ดูไฟล์การแจ้งเตือน OTP / ลิงก์ยืนยันตัวตน 2FA
+# 4. ดูไฟล์การแจ้งเตือน OTP / ลิงก์ยืนยันตัวตน 2FA
 cat /data/docker/authelia/config/notification.txt
 ```
 
