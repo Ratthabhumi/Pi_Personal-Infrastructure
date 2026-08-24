@@ -367,6 +367,12 @@ docker exec -u www-data -it nextcloud php occ maintenance:mode --off
 
 # 4. คำสั่งตรวจสอบและสร้างดัชนีฐานข้อมูลที่ขาดหายไป (DB Missing Indices)
 docker exec -u www-data -it nextcloud php occ db:add-missing-indices
+
+# 5. คำสั่งเพิ่ม Trusted Domain สำหรับเชื่อมต่อกับ Uptime Kuma หรือเครือข่ายภายใน
+docker exec -u www-data -it nextcloud php occ config:system:set trusted_domains 3 --value="nextcloud"
+
+# 6. คำสั่งรีเซ็ตรหัสผ่านแอดมินหรือผู้ใช้ฉุกเฉิน
+docker exec -u www-data -it nextcloud php occ user:resetpassword admin
 ```
 
 ---
