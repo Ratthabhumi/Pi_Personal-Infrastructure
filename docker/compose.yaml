@@ -394,7 +394,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-admin123}
       - REDIS_HOST=redis
       - REDIS_HOST_PASSWORD=${REDIS_PASSWORD:-admin123}
-      - NEXTCLOUD_TRUSTED_DOMAINS=cloud.mew.lab 100.116.167.3 cloud.homelab.ts.net
+      - NEXTCLOUD_TRUSTED_DOMAINS=cloud.mew.lab 100.116.167.3 cloud.homelab.ts.net nextcloud
       - OVERWRITEPROTOCOL=https
       - OVERWRITECLIURL=https://cloud.mew.lab
       - PHP_MEMORY_LIMIT=512M
