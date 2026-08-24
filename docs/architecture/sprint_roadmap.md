@@ -49,8 +49,8 @@ In modern Site Reliability Engineering (SRE), deploying application containers b
 | **10** | **Database as a Service (DBaaS)**<br>Centralized relational database for upcoming apps. | • PostgreSQL Server<br>• pgAdmin UI<br>• Automated daily dumps | **PostgreSQL**<br>**Docker** | 1-2 Days | 🏆 **COMPLETED** |
 | **11** | **In-Memory Cache & Queue**<br>Centralized caching layer to speed up apps and handle background jobs. | • Redis Container | **Redis** | 1 Day | 🏆 **COMPLETED** |
 | **12** | **Single Sign-On (SSO) & IAM**<br>Centralized authentication. Log in once to access all Homelab apps securely. | • Authelia SSO & 2FA<br>• Traefik ForwardAuth | **Authelia**<br>**PostgreSQL**<br>**Redis** | 2-3 Days | 🏆 **COMPLETED** |
-| **13** | **Private Cloud Storage**<br>Self-hosted Google Drive alternative for file syncing and sharing. | • Nextcloud or Seafile<br>• Desktop/Mobile Sync | **Nextcloud**<br>**WebDAV** | 2 Days | ⚪ *Next Up* |
-| **14** | **Self-Hosted Git Service**<br>Private code repository for local projects or mirroring GitHub. | • Gitea or Forgejo<br>• SSH Key Auth | **Gitea**<br>**Git** | 1 Day | ⚪ *Planned* |
+| **13** | **Private Cloud Storage**<br>Self-hosted Google Drive alternative for file syncing and sharing. | • Nextcloud Multi-Tier Storage<br>• Desktop/Mobile Sync | **Nextcloud**<br>**PostgreSQL**<br>**Redis** | 2 Days | 🏆 **COMPLETED** |
+| **14** | **Self-Hosted Git Service**<br>Private code repository for local projects or mirroring GitHub. | • Gitea or Forgejo<br>• SSH Key Auth | **Gitea**<br>**Git** | 1 Day | ⚪ *Next Up* |
 | **15** | **Disaster Recovery (Offsite)**<br>Automated encrypted backups to a remote cloud (e.g., Google Drive) for critical app data. | • Rclone integration<br>• Cron backup schedules | **Rclone**<br>**Restic** | 1-2 Days | ⚪ *Planned* |
 | **16** | **Knowledge Management**<br>Centralized documentation and wiki for the Homelab and projects. | • Wiki.js or Outline<br>• Markdown support | **Wiki.js**<br>**PostgreSQL** | 1 Day | ⚪ *Planned* |
 | **17** | **Advanced Log Aggregation**<br>Centralized logging so you never have to `docker logs` manually again. | • Grafana Loki<br>• Promtail (Log shipper) | **Loki**<br>**Promtail** | 2 Days | ⚪ *Planned* |
@@ -141,3 +141,10 @@ Before closing Sprint 1 and moving to Sprint 2, the following conditions must be
 - [x] Configure declarative user accounts (`admin`, `mew`) with live-generated Argon2id password hashing.
 - [x] Create reusable Traefik ForwardAuth middleware (`authelia@docker`) and apply perimeter protection to Portainer, Traefik Dashboard, pgAdmin 4, and Uptime Kuma.
 - [x] Automate Authelia configuration permissions via Ansible and integrate service tile into Homepage dashboard.
+
+### 🏆 Sprint 13 Definition of Done (Completed)
+- [x] Deploy Nextcloud (`nextcloud:apache`) with multi-tier storage layout (SATA SSD web root `/ssd-data/docker/nextcloud/html` and 1TB HDD data store `/data/docker/nextcloud/data`).
+- [x] Integrate Nextcloud with PostgreSQL 16 DBaaS (`homelab` database) and Redis 7 memory cache (`redis:6379`, DB index 2 for transactional locking).
+- [x] Configure Traefik Ingress routing for `http://cloud.mew.lab` with auto-TLS and CalDAV/CardDAV redirection middlewares.
+- [x] Automate Nextcloud directory provisioning and UID `33:33` (`www-data`) permissions via Ansible deploy playbook.
+- [x] Add Nextcloud tile to Homepage dashboard and document maintenance OCC commands in CheatSheet.md.

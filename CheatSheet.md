@@ -343,4 +343,31 @@ docker exec -it uptime-kuma npm run reset-password
 ```
 
 ---
+
+## ☁️ 12. คัมภีร์ระบบคลาวด์ไดรฟ์ส่วนตัว (Sprint 13: Nextcloud Private Cloud)
+
+### 🏛️ สถาปัตยกรรมพื้นที่จัดเก็บแบบแยก Tier (Multi-Tier Storage)
+* **Web Root & Core App:** `/ssd-data/docker/nextcloud/html` (อยู่บน SATA SSD เพื่อความเร็วในการเปิดหน้าเว็บและโหลด Thumbnail รูป)
+* **Mass File Store:** `/data/docker/nextcloud/data` (อยู่บน 1TB HDD เพื่อเก็บไฟล์ขนาดใหญ่ รูปภาพ และวิดีโอได้เกือบ 1,000 GB)
+* **Database Engine:** ผูกกับ **PostgreSQL 16** (`homelab` database)
+* **Memory Cache & Transactional Locking:** ผูกกับ **Redis 7** (`redis:6379`, DB Index 2)
+* **Domain & Ingress:** `http://cloud.mew.lab` (พร้อม HTTPS และระบบ CalDAV/CardDAV Redirection)
+
+### 🧪 คำสั่งจัดการ Nextcloud ด้วย OCC CLI ผ่าน Terminal (SRE Commands)
+```bash
+# 1. ตรวจสอบสถานะการทำงานของ Nextcloud (Expect: installed: true, version: ...)
+docker exec -u www-data -it nextcloud php occ status
+
+# 2. คำสั่งสแกนไฟล์ใหม่ทั้งหมดในกรณีที่มีการก๊อปปี้ไฟล์เข้ามาโดยตรง
+docker exec -u www-data -it nextcloud php occ files:scan --all
+
+# 3. คำสั่งเปิด / ปิดโหมดซ่อมบำรุง (Maintenance Mode)
+docker exec -u www-data -it nextcloud php occ maintenance:mode --on
+docker exec -u www-data -it nextcloud php occ maintenance:mode --off
+
+# 4. คำสั่งตรวจสอบและสร้างดัชนีฐานข้อมูลที่ขาดหายไป (DB Missing Indices)
+docker exec -u www-data -it nextcloud php occ db:add-missing-indices
+```
+
+---
 *🚀 **Keep Building, Keep Escalating, and Never Stop Learning!** 🚀*

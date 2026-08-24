@@ -5,7 +5,7 @@
 ![Networking: Tailscale Mesh](https://img.shields.io/badge/Networking-Tailscale%20Mesh-orange?style=for-the-badge)
 ![CI Status](https://img.shields.io/github/actions/workflow/status/Ratthabhumi/Pi_Personal-Infrastructure/ci.yml?label=CI%20Linting&style=for-the-badge)
 ![CD Status](https://img.shields.io/github/actions/workflow/status/Ratthabhumi/Pi_Personal-Infrastructure/cd.yml?label=CD%20Deploy&style=for-the-badge)
-![Project Status: Sprint 12 (Authelia SSO) Active](https://img.shields.io/badge/Project%20Status-Sprint%2012%20(Authelia%20SSO)%20COMPLETED-success?style=for-the-badge)
+![Project Status: Sprint 13 (Nextcloud Private Cloud) Active](https://img.shields.io/badge/Project%20Status-Sprint%2013%20(Nextcloud%20Private%20Cloud)%20COMPLETED-success?style=for-the-badge)
 
 ---
 
@@ -45,8 +45,8 @@ We strictly abide by modern **DevOps, Site Reliability Engineering (SRE), and Pl
 | **10** | **Database as a Service (DBaaS)** | Centralized PostgreSQL 16 server, pgAdmin 4 Auto-Provisioned Web UI, automated multi-tier daily backup dumps | **PostgreSQL 16**, **pgAdmin 4**, **Docker** | 🏆 **COMPLETED** |
 | **11** | **In-Memory Cache & Queue** | Centralized Redis in-memory cache layer to speed up upcoming apps and background job workers | **Redis 7 Alpine** | 🏆 **COMPLETED** |
 | **12** | **Single Sign-On (SSO) & IAM** | Centralized authentication, 2FA/FIDO2, Traefik ForwardAuth integration | **Authelia**, **PostgreSQL**, **Redis** | 🏆 **COMPLETED** |
-| **13** | **Private Cloud Storage** | Self-hosted cloud storage with desktop & mobile sync (Nextcloud) | **Nextcloud**, **WebDAV** | ⚪ *Next Up* |
-| **14** | **Self-Hosted Git Service** | Private lightweight Git repository for local projects or GitHub mirroring | **Gitea / Forgejo**, **Git** | ⚪ *Planned* |
+| **13** | **Private Cloud Storage** | Self-hosted cloud storage with multi-tier storage layout (SATA SSD + 1TB HDD) and mobile sync (Nextcloud) | **Nextcloud**, **PostgreSQL**, **Redis** | 🏆 **COMPLETED** |
+| **14** | **Self-Hosted Git Service** | Private lightweight Git repository for local projects or GitHub mirroring | **Gitea / Forgejo**, **Git** | ⚪ *Next Up* |
 | **15** | **Disaster Recovery (Offsite)** | Encrypted offsite cloud backups to remote cloud storage via Rclone schedules | **Rclone**, **Restic** | ⚪ *Planned* |
 | **16** | **Knowledge Management** | Centralized documentation, markdown notes, and personal wiki platform | **Wiki.js / Outline** | ⚪ *Planned* |
 | **17** | **Advanced Log Aggregation** | Centralized logging engine and log shipper (no more manual `docker logs`) | **Grafana Loki**, **Promtail** | ⚪ *Planned* |
@@ -78,6 +78,7 @@ We strictly abide by modern **DevOps, Site Reliability Engineering (SRE), and Pl
 | **Vaultwarden** | `https://vaultwarden.homelab.ts.net` | Zero-Trust Password Vault (Tailscale HTTPS) | Set on first login |
 | **Uptime Kuma** | `http://kuma.mew.lab` *(https)* | Live Service Monitoring & Alerting | 🛡️ **Guarded by Authelia SSO** |
 | **pgAdmin 4** | `http://pgadmin.mew.lab` *(https)* | Centralized PostgreSQL Web Administration | 🛡️ **Guarded by Authelia SSO** |
+| **Nextcloud** | `http://cloud.mew.lab` *(https)* | Private Cloud Storage, Photos & WebDAV | Set on first onboarding |
 | **PostgreSQL** | `postgres:5432` *(Internal Network)* | Relational Database Engine (DBaaS) | `admin` / `admin123` (`homelab` db) |
 | **Redis Cache** | `redis:6379` *(Internal Network)* | In-Memory Cache & Message Queue Layer | `admin123` |
 | **Authelia SSO** | `http://auth.mew.lab` *(https)* | Centralized Single Sign-On & 2FA Gateway | `admin` / `password` |

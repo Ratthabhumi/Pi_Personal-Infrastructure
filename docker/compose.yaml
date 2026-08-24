@@ -379,3 +379,40 @@ services:
       - "traefik.http.middlewares.authelia.forwardauth.address=http://authelia:9091/api/authz/forward-auth"
       - "traefik.http.middlewares.authelia.forwardauth.trustForwardHeader=true"
       - "traefik.http.middlewares.authelia.forwardauth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Name,Remote-Email"
+
+  nextcloud:
+    image: nextcloud:apache
+    container_name: nextcloud
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - TZ=${TZ:-Asia/Bangkok}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=homelab
+      - POSTGRES_USER=${POSTGRES_USER:-admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-admin123}
+      - REDIS_HOST=redis
+      - REDIS_HOST_PASSWORD=${REDIS_PASSWORD:-admin123}
+      - NEXTCLOUD_TRUSTED_DOMAINS=cloud.mew.lab 100.116.167.3 cloud.homelab.ts.net
+      - OVERWRITEPROTOCOL=https
+      - OVERWRITECLIURL=https://cloud.mew.lab
+      - PHP_MEMORY_LIMIT=512M
+      - PHP_UPLOAD_LIMIT=16G
+    volumes:
+      - /ssd-data/docker/nextcloud/html:/var/www/html
+      - /data/docker/nextcloud/data:/var/www/html/data
+    networks:
+      - proxy
+      - internal
+    depends_on:
+      - postgres
+      - redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=homelab_proxy"
+      - "traefik.http.routers.nextcloud.rule=Host(`cloud.mew.lab`)"
+      - "traefik.http.services.nextcloud.loadbalancer.server.port=80"
+      - "traefik.http.middlewares.nextcloud-dav.redirectregex.regex=https://(.*)/.well-known/(card|cal)dav"
+      - "traefik.http.middlewares.nextcloud-dav.redirectregex.replacement=https://$${1}/remote.php/dav/"
+      - "traefik.http.routers.nextcloud.middlewares=nextcloud-dav"

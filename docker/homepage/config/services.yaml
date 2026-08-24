@@ -29,6 +29,10 @@
         description: Single Sign-On & 2FA Gateway
 
 - Database & Storage:
+    - Nextcloud:
+        icon: nextcloud.png
+        href: http://cloud.mew.lab
+        description: Private Cloud Storage & Sync
     - pgAdmin 4:
         icon: pgadmin.png
         href: http://pgadmin.mew.lab
