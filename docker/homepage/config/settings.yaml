@@ -5,3 +5,7 @@ layout:
   Homelab Infrastructure:
     style: row
     columns: 4
+  Database & Storage:
+    style: row
+    columns: 4
+
