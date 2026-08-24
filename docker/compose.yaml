@@ -341,3 +341,31 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+
+  authelia:
+    image: authelia/authelia:latest
+    container_name: authelia
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - TZ=${TZ:-Asia/Bangkok}
+      - AUTHELIA_JWT_SECRET=${AUTHELIA_JWT_SECRET:-a_very_secure_jwt_secret_for_homelab_sso_2026}
+      - AUTHELIA_SESSION_SECRET=${AUTHELIA_SESSION_SECRET:-a_very_secure_session_secret_for_homelab_sso_2026}
+      - AUTHELIA_STORAGE_ENCRYPTION_KEY=${AUTHELIA_STORAGE_ENCRYPTION_KEY:-a_very_secure_storage_encryption_key_2026}
+    volumes:
+      - /data/docker/authelia/config:/config
+    networks:
+      - proxy
+      - internal
+    depends_on:
+      - postgres
+      - redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=homelab_proxy"
+      - "traefik.http.routers.authelia.rule=Host(`auth.mew.lab`)"
+      - "traefik.http.services.authelia.loadbalancer.server.port=9091"
+      - "traefik.http.middlewares.authelia.forwardauth.address=http://authelia:9091/api/authz/forward-auth"
+      - "traefik.http.middlewares.authelia.forwardauth.trustForwardHeader=true"
+      - "traefik.http.middlewares.authelia.forwardauth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Name,Remote-Email"

@@ -92,6 +92,8 @@ git pull origin main
 | **Uptime Kuma** | `http://kuma.homelab.lan` | ยามเฝ้าระวังเซิร์ฟเวอร์ คอยแจ้งเตือนผ่าน Telegram/Discord ทันทีถ้าระบบหรือเน็ตเวิร์กล่ม | *ตั้งค่ารหัสผ่านใหม่ในการเข้าใช้งานครั้งแรก* |
 | **pgAdmin 4** | `http://pgadmin.mew.lab` | แดชบอร์ดบริหารจัดการฐานข้อมูลกลาง (PostgreSQL DBaaS) | **Email:** `admin@mew.lab`<br>**Pass:** `admin123` |
 | **PostgreSQL** | `postgres:5432` *(Internal)* | ฐานข้อมูล Relational Database กลางสำหรับแอปทั้งบ้าน | **User:** `admin`<br>**DB:** `homelab` |
+| **Redis Cache** | `redis:6379` *(Internal)* | In-Memory Cache & Message Queue Layer | `admin123` |
+| **Authelia SSO** | `http://auth.mew.lab` | ศูนย์กลางยืนยันตัวตน Single Sign-On และ 2FA Gateway | **User:** `admin` หรือ `mew`<br>**Pass:** `admin123` *(หรือ OTP)* |
 
 ---
 
@@ -297,6 +299,35 @@ docker exec -it redis redis-cli -a admin123 get test_key
 
 # 3. ดูสถิติการใช้ RAM และจำนวน Key ในระบบ
 docker exec -it redis redis-cli -a admin123 info memory
+```
+
+---
+
+## 🛡️ 11. คัมภีร์ระบบล็อกอินกลางและยามเฝ้าประตู (Sprint 12: Authelia SSO & IAM)
+
+### 🏛️ สถาปัตยกรรม Authelia ใน Homelab
+* **Ultra-Lightweight:** เขียนด้วย Go binary กิน RAM ต่ำมากเพียง **~35MB**
+* **Database Backend:** ผูกกับ **PostgreSQL 16** (`homelab` database)
+* **Session Store:** ผูกกับ **Redis 7** (`redis://:admin123@redis:6379/1`)
+* **User Store:** บัญชีผู้ใช้บันทึกในรูปแบบไฟล์ `/data/docker/authelia/config/users_database.yml` เข้ารหัสผ่านด้วยอัลกอริทึมระดับสูงสุด **Argon2id**
+
+### 🪄 วิธีเสกคุ้มกันหน้าเว็บใดๆ ด้วย Authelia (Traefik ForwardAuth Magic)
+หากต้องการให้แอปพลิเคชันใดๆ ใน `compose.yaml` โดนบังคับล็อกอิน 2FA ผ่าน Authelia ก่อนเข้าถึงหน้าเว็บ ให้เพิ่มบรรทัดนี้ลงใน `labels` ของตู้ที่ต้องการ:
+```yaml
+    labels:
+      - "traefik.http.routers.<app-name>.middlewares=authelia@docker"
+```
+
+### 🧪 คำสั่งทดสอบและตรวจสอบ Authelia ผ่าน Terminal (SRE Commands)
+```bash
+# 1. ทดสอบว่า Authelia ตอบรับและตรวจสอบสถานะ Healthcheck
+docker exec -it authelia authelia healthcheck
+
+# 2. คำสั่งสร้างรหัสผ่านแฮช Argon2id สำหรับผู้ใช้ใหม่
+docker exec -it authelia authelia crypto hash generate argon2 --password 'YourNewPasswordHere'
+
+# 3. ดูไฟล์การแจ้งเตือน OTP / ลิงก์ยืนยันตัวตน 2FA
+cat /data/docker/authelia/config/notification.txt
 ```
 
 ---

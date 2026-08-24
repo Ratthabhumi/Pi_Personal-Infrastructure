@@ -1,0 +1,21 @@
+---
+###############################################################
+#             Authelia Users Database for Homelab             #
+###############################################################
+
+users:
+  admin:
+    displayname: "Homelab Administrator"
+    password: "$argon2id$v=19$m=65536,t=3,p=4$uj2PmcAMLdaOzCdBoEc9xw$normes2rf93xRWjhRPVIPUhx14iWqMwWWeNx8ghSYM8"
+    email: "admin@mew.lab"
+    groups:
+      - "admins"
+      - "devops"
+
+  mew:
+    displayname: "Mew"
+    password: "$argon2id$v=19$m=65536,t=3,p=4$uj2PmcAMLdaOzCdBoEc9xw$normes2rf93xRWjhRPVIPUhx14iWqMwWWeNx8ghSYM8"
+    email: "mew@mew.lab"
+    groups:
+      - "admins"
+      - "devops"

@@ -23,6 +23,10 @@
         icon: vaultwarden.png
         href: https://homelab.tail35e4b4.ts.net
         description: Password Manager
+    - Authelia SSO:
+        icon: authelia.png
+        href: http://auth.mew.lab
+        description: Single Sign-On & 2FA Gateway
 
 - Database & Storage:
     - pgAdmin 4:

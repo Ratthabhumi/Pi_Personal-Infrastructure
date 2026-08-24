@@ -48,8 +48,8 @@ In modern Site Reliability Engineering (SRE), deploying application containers b
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **10** | **Database as a Service (DBaaS)**<br>Centralized relational database for upcoming apps. | • PostgreSQL Server<br>• pgAdmin UI<br>• Automated daily dumps | **PostgreSQL**<br>**Docker** | 1-2 Days | 🏆 **COMPLETED** |
 | **11** | **In-Memory Cache & Queue**<br>Centralized caching layer to speed up apps and handle background jobs. | • Redis Container | **Redis** | 1 Day | 🏆 **COMPLETED** |
-| **12** | **Single Sign-On (SSO) & IAM**<br>Centralized authentication. Log in once to access all Homelab apps securely. | • Authelia or Authentik<br>• Traefik ForwardAuth | **Authelia**<br>**OIDC / SAML** | 2-3 Days | ⚪ *Next Up* |
-| **13** | **Private Cloud Storage**<br>Self-hosted Google Drive alternative for file syncing and sharing. | • Nextcloud or Seafile<br>• Desktop/Mobile Sync | **Nextcloud**<br>**WebDAV** | 2 Days | ⚪ *Planned* |
+| **12** | **Single Sign-On (SSO) & IAM**<br>Centralized authentication. Log in once to access all Homelab apps securely. | • Authelia SSO & 2FA<br>• Traefik ForwardAuth | **Authelia**<br>**PostgreSQL**<br>**Redis** | 2-3 Days | 🏆 **COMPLETED** |
+| **13** | **Private Cloud Storage**<br>Self-hosted Google Drive alternative for file syncing and sharing. | • Nextcloud or Seafile<br>• Desktop/Mobile Sync | **Nextcloud**<br>**WebDAV** | 2 Days | ⚪ *Next Up* |
 | **14** | **Self-Hosted Git Service**<br>Private code repository for local projects or mirroring GitHub. | • Gitea or Forgejo<br>• SSH Key Auth | **Gitea**<br>**Git** | 1 Day | ⚪ *Planned* |
 | **15** | **Disaster Recovery (Offsite)**<br>Automated encrypted backups to a remote cloud (e.g., Google Drive) for critical app data. | • Rclone integration<br>• Cron backup schedules | **Rclone**<br>**Restic** | 1-2 Days | ⚪ *Planned* |
 | **16** | **Knowledge Management**<br>Centralized documentation and wiki for the Homelab and projects. | • Wiki.js or Outline<br>• Markdown support | **Wiki.js**<br>**PostgreSQL** | 1 Day | ⚪ *Planned* |
@@ -134,3 +134,10 @@ Before closing Sprint 1 and moving to Sprint 2, the following conditions must be
 - [x] Enable Append-Only File (AOF) persistence mapped to persistent HDD storage (`/data/docker/redis/data`).
 - [x] Automate Redis data directory permissions (UID 999) via Ansible deploy playbook (`01_deploy_homelab.yml`).
 - [x] Add Redis Cache to Homepage dashboard services and establish Uptime Kuma TCP health monitoring.
+
+### 🏆 Sprint 12 Definition of Done (Completed)
+- [x] Deploy Authelia SSO & IAM (`authelia`) container integrated with PostgreSQL 16 DBaaS and Redis 7 session store.
+- [x] Establish Traefik Ingress routing for `http://auth.mew.lab` via port 9091.
+- [x] Configure declarative user accounts (`admin`, `mew`) with Argon2id password hashing and role groups (`admins`, `devops`).
+- [x] Create reusable Traefik ForwardAuth middleware (`authelia@docker`) to protect homelab web applications.
+- [x] Automate Authelia configuration permissions via Ansible and integrate service tile into Homepage dashboard.

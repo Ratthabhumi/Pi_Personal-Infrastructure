@@ -63,6 +63,12 @@
       changed_when: false
       failed_when: false
 
+    - name: 🔧 Fix Authelia Config Directory Permissions (via Docker)
+      ansible.builtin.command:
+        cmd: docker run --rm -v /data/docker/authelia/config:/config alpine chown -R 1000:1000 /config
+      changed_when: false
+      failed_when: false
+
     - name: 🔐 Reset AdGuard Home Password to admin123 (via Docker)
       ansible.builtin.command:
         cmd: "docker run --rm -v /data/docker/adguardhome/conf/AdGuardHome.yaml:/app/AdGuardHome.yaml alpine sed -i -E 's/(password: ).*/\\1$2a$10$vI8aWBnW3fID.ZQ4\\/zo1G.q1lRps.9cGLcZEiGDMVr5yUP1KUOYTa/' /app/AdGuardHome.yaml"
