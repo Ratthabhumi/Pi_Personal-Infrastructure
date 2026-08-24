@@ -6,7 +6,7 @@
 users:
   admin:
     displayname: "Homelab Administrator"
-    password: "$argon2id$v=19$m=65536,t=3,p=4$uj2PmcAMLdaOzCdBoEc9xw$normes2rf93xRWjhRPVIPUhx14iWqMwWWeNx8ghSYM8"
+    password: "$argon2id$v=19$m=65536,t=3,p=4$iIz2EvpETnkeYEF3DaEf4w$d4LzT3xi6UKvg2uvY3S2R2XKuwLIvcfSgA4vZ3UxBaQ"
     email: "admin@mew.lab"
     groups:
       - "admins"
@@ -14,7 +14,7 @@ users:
 
   mew:
     displayname: "Mew"
-    password: "$argon2id$v=19$m=65536,t=3,p=4$uj2PmcAMLdaOzCdBoEc9xw$normes2rf93xRWjhRPVIPUhx14iWqMwWWeNx8ghSYM8"
+    password: "$argon2id$v=19$m=65536,t=3,p=4$iIz2EvpETnkeYEF3DaEf4w$d4LzT3xi6UKvg2uvY3S2R2XKuwLIvcfSgA4vZ3UxBaQ"
     email: "mew@mew.lab"
     groups:
       - "admins"
