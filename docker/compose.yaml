@@ -53,6 +53,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.traefik-dash.rule=Host(`traefik.mew.lab`)"
       - "traefik.http.routers.traefik-dash.service=api@internal"
+      - "traefik.http.routers.traefik-dash.middlewares=authelia@docker"
 
   portainer:
     image: portainer/portainer-ce:2.21.5
@@ -70,6 +71,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.portainer.rule=Host(`portainer.mew.lab`)"
+      - "traefik.http.routers.portainer.middlewares=authelia@docker"
       - "traefik.http.services.portainer.loadbalancer.server.port=9000"
 
   victoriametrics:
@@ -237,6 +239,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.kuma.rule=Host(`kuma.mew.lab`)"
+      - "traefik.http.routers.kuma.middlewares=authelia@docker"
       - "traefik.http.services.kuma.loadbalancer.server.port=3001"
 
   homepage:
@@ -300,6 +303,7 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=homelab_proxy"
       - "traefik.http.routers.pgadmin.rule=Host(`pgadmin.mew.lab`)"
+      - "traefik.http.routers.pgadmin.middlewares=authelia@docker"
       - "traefik.http.services.pgadmin.loadbalancer.server.port=8080"
 
   postgres-backup:
