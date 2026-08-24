@@ -14,7 +14,8 @@
     url: https://download.docker.com/linux/ubuntu/gpg
     dest: /etc/apt/keyrings/docker.asc
     mode: '0644'
-    force: true
+    force: false
+  ignore_errors: true
 
 - name: Register official Docker Apt repository with dynamic architectural detection
   ansible.builtin.apt_repository:
