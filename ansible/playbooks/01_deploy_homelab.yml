@@ -24,6 +24,14 @@
         cmd: docker run --rm -v /data/docker:/data alpine chown -R 1000:1000 /data
       changed_when: false
 
+    - name: 🧹 Remove mistakenly created directory if servers.json is a folder (Docker mount artifact)
+      ansible.builtin.shell: |
+        if [ -d "/data/docker/pgadmin/config/servers.json" ]; then
+          rm -rf "/data/docker/pgadmin/config/servers.json"
+        fi
+      become: true
+      changed_when: false
+
     - name: 🔄 Synchronize docker configuration files from Git repository
       ansible.builtin.copy:
         src: ../../docker/
