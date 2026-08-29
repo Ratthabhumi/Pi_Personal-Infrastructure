@@ -26,10 +26,30 @@ dns:
   all_servers: false
   fastest_addr: true
   rewrites:
-    - domain: "*.mew.lab"
-      answer: "100.116.167.3"
     - domain: "mew.lab"
       answer: "100.116.167.3"
+    - domain: "auth.mew.lab"
+      answer: "100.116.167.3"
+    - domain: "kuma.mew.lab"
+      answer: "100.116.167.3"
+    - domain: "home.mew.lab"
+      answer: "100.116.167.3"
+    - domain: "pgadmin.mew.lab"
+      answer: "100.116.167.3"
+    - domain: "cloud.mew.lab"
+      answer: "100.116.167.3"
+    - domain: "grafana.mew.lab"
+      answer: "100.116.167.3"
+    - domain: "portainer.mew.lab"
+      answer: "100.116.167.3"
+    - domain: "traefik.mew.lab"
+      answer: "100.116.167.3"
+    - domain: "vmetrics.mew.lab"
+      answer: "100.116.167.3"
+    - domain: "adguard.mew.lab"
+      answer: "100.116.167.3"
+user_rules:
+  - "||mew.lab^$dnsrewrite=100.116.167.3"
 users:
   - name: admin
     password: "$2a$10$vI8aWBnW3fID.ZQ4/zo1G.q1lRps.9cGLcZEiGDMVr5yUP1KUOYTa"
