@@ -81,5 +81,6 @@ venv/
 *.tar.gz
 *.zip
 *.sql
-*.sqlite
-*.sqlite3
+# 8. Local Conversation Logs & Chat Exports
+HomeLab-*.md
+HomeLab-13-8-2026.md
