@@ -205,7 +205,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.adguard.rule=Host(`adguard.mew.lab`)"
-      - "traefik.http.services.adguard.loadbalancer.server.port=80"
+      - "traefik.http.services.adguard.loadbalancer.server.port=3000"
 
   watchtower:
     image: containrrr/watchtower:latest
