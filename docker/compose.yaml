@@ -147,7 +147,7 @@ services:
       - no-new-privileges:true
     environment:
       - TZ=${TZ:-Asia/Bangkok}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin123}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - /data/docker/grafana/data:/var/lib/grafana
@@ -281,7 +281,7 @@ services:
     environment:
       - TZ=${TZ:-Asia/Bangkok}
       - POSTGRES_USER=${POSTGRES_USER:-admin}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-admin123}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB:-homelab}
     volumes:
       - /data/docker/postgres/data:/var/lib/postgresql/data
@@ -297,7 +297,7 @@ services:
     environment:
       - TZ=${TZ:-Asia/Bangkok}
       - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL:-admin@mew.lab}
-      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD:-admin123}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
     volumes:
       - /data/docker/pgadmin/data:/var/lib/pgadmin
       - /data/docker/pgadmin/config/servers.json:/pgadmin4/servers.json:ro
@@ -321,7 +321,7 @@ services:
       - TZ=${TZ:-Asia/Bangkok}
       - POSTGRES_HOST=postgres
       - POSTGRES_USER=${POSTGRES_USER:-admin}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-admin123}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB:-homelab}
       - SCHEDULE=@daily
       - BACKUP_KEEP_DAYS=7
@@ -337,7 +337,7 @@ services:
     image: redis:7-alpine
     container_name: redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-admin123} --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD} --maxmemory 256mb --maxmemory-policy allkeys-lru
     security_opt:
       - no-new-privileges:true
     environment:
@@ -347,7 +347,7 @@ services:
     networks:
       - internal
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-admin123}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -360,12 +360,12 @@ services:
       - no-new-privileges:true
     environment:
       - TZ=${TZ:-Asia/Bangkok}
-      - AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET=${AUTHELIA_JWT_SECRET:-a_very_secure_jwt_secret_for_homelab_sso_2026}
-      - AUTHELIA_SESSION_SECRET=${AUTHELIA_SESSION_SECRET:-a_very_secure_session_secret_for_homelab_sso_2026}
-      - AUTHELIA_STORAGE_ENCRYPTION_KEY=${AUTHELIA_STORAGE_ENCRYPTION_KEY:-a_very_secure_storage_encryption_key_2026}
+      - AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET=${AUTHELIA_JWT_SECRET}
+      - AUTHELIA_SESSION_SECRET=${AUTHELIA_SESSION_SECRET}
+      - AUTHELIA_STORAGE_ENCRYPTION_KEY=${AUTHELIA_STORAGE_ENCRYPTION_KEY}
       - AUTHELIA_STORAGE_POSTGRES_USERNAME=${POSTGRES_USER:-admin}
-      - AUTHELIA_STORAGE_POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-admin123}
-      - AUTHELIA_SESSION_REDIS_PASSWORD=${REDIS_PASSWORD:-admin123}
+      - AUTHELIA_STORAGE_POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - AUTHELIA_SESSION_REDIS_PASSWORD=${REDIS_PASSWORD}
     volumes:
       - /data/docker/authelia/config:/config
     networks:
@@ -394,9 +394,9 @@ services:
       - POSTGRES_HOST=postgres
       - POSTGRES_DB=homelab
       - POSTGRES_USER=${POSTGRES_USER:-admin}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-admin123}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - REDIS_HOST=redis
-      - REDIS_HOST_PASSWORD=${REDIS_PASSWORD:-admin123}
+      - REDIS_HOST_PASSWORD=${REDIS_PASSWORD}
       - NEXTCLOUD_TRUSTED_DOMAINS=cloud.mew.lab 100.116.167.3 cloud.homelab.ts.net nextcloud
       - OVERWRITEPROTOCOL=https
       - OVERWRITECLIURL=https://cloud.mew.lab
