@@ -360,9 +360,9 @@ services:
       - no-new-privileges:true
     environment:
       - TZ=${TZ:-Asia/Bangkok}
-      - AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET=${AUTHELIA_JWT_SECRET:-insecure_default_jwt_secret_homelab_2026_key}
-      - AUTHELIA_SESSION_SECRET=${AUTHELIA_SESSION_SECRET:-insecure_default_session_secret_for_homelab_sso_2026}
-      - AUTHELIA_STORAGE_ENCRYPTION_KEY=${AUTHELIA_STORAGE_ENCRYPTION_KEY:-insecure_default_storage_encryption_key_2026}
+      - AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET=${AUTHELIA_JWT_SECRET:-a_very_secure_jwt_secret_for_homelab_sso_2026}
+      - AUTHELIA_SESSION_SECRET=${AUTHELIA_SESSION_SECRET:-a_very_secure_session_secret_for_homelab_sso_2026}
+      - AUTHELIA_STORAGE_ENCRYPTION_KEY=${AUTHELIA_STORAGE_ENCRYPTION_KEY:-a_very_secure_storage_encryption_key_2026}
       - AUTHELIA_STORAGE_POSTGRES_USERNAME=${POSTGRES_USER:-admin}
       - AUTHELIA_STORAGE_POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-admin123}
       - AUTHELIA_SESSION_REDIS_PASSWORD=${REDIS_PASSWORD:-admin123}
