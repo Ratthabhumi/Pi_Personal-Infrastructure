@@ -17,6 +17,7 @@
         owner: mew
         group: mew
         mode: '0775'
+      become: true
 
     - name: 🔧 Ensure /data/docker is writable by mew user (via Docker)
       ansible.builtin.command:
