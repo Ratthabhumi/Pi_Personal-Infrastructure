@@ -24,10 +24,13 @@
         cmd: docker run --rm -v /data/docker:/data alpine chown -R 1000:1000 /data
       changed_when: false
 
-    - name: 🧹 Remove mistakenly created directory if servers.json is a folder (Docker mount artifact)
+    - name: 🧹 Remove mistakenly created directories for single-file Docker volume mounts
       ansible.builtin.shell: |
         if [ -d "/data/docker/pgadmin/config/servers.json" ]; then
           rm -rf "/data/docker/pgadmin/config/servers.json"
+        fi
+        if [ -d "/data/docker/prometheus/config/prometheus.yml" ]; then
+          rm -rf "/data/docker/prometheus/config/prometheus.yml"
         fi
       become: true
       changed_when: false
