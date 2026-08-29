@@ -1,0 +1,35 @@
+# ==============================================================================
+# ADGUARD HOME CONFIGURATION (GitOps Managed)
+# Location: /data/docker/adguardhome/conf/AdGuardHome.yaml
+# ==============================================================================
+schema_version: 29
+bind_host: 0.0.0.0
+bind_port: 80
+auth_attempts: 5
+block_auth_min: 15
+http_proxy: ""
+language: en
+theme: dark
+debug_pprof: false
+web_session_ttl_hdr: 720
+dns:
+  bind_hosts:
+    - 0.0.0.0
+  port: 53
+  upstream_dns:
+    - 1.1.1.1
+    - 8.8.8.8
+    - https://dns.cloudflare.com/dns-query
+  bootstrap_dns:
+    - 1.1.1.1
+    - 8.8.8.8
+  all_servers: false
+  fastest_addr: true
+  rewrites:
+    - domain: "*.mew.lab"
+      answer: "100.116.167.3"
+    - domain: "mew.lab"
+      answer: "100.116.167.3"
+users:
+  - name: admin
+    password: "$2a$10$vI8aWBnW3fID.ZQ4/zo1G.q1lRps.9cGLcZEiGDMVr5yUP1KUOYTa"
