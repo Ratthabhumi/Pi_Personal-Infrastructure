@@ -74,14 +74,14 @@ We strictly abide by modern **DevOps, Site Reliability Engineering (SRE), and Pl
 | **Grafana** | `http://grafana.mew.lab` *(https)* | Metrics & Health Telemetry Visualization | `admin` / `admin123` |
 | **VictoriaMetrics** | `http://vmetrics.mew.lab` | High-Performance Time-Series Database | Internal / Prometheus compatible |
 | **Traefik** | `http://traefik.mew.lab` *(https)* | Edge Routing & Ingress Dashboard | 🛡️ **Guarded by Authelia SSO** |
-| **AdGuard Home** | `http://adguard.mew.lab` *(https)* | Network DNS & Ad-Blocker | Set on first login |
-| **Vaultwarden** | `https://vaultwarden.homelab.ts.net` | Zero-Trust Password Vault (Tailscale HTTPS) | Set on first login |
+| **AdGuard Home** | `http://adguard.mew.lab` *(https)* | Network DNS & Ad-Blocker | `admin` / `admin123` |
+| **Vaultwarden** | `https://homelab.tail35e4b4.ts.net` | Zero-Trust Password Vault (Tailscale HTTPS) | Private Vault Login |
 | **Uptime Kuma** | `http://kuma.mew.lab` *(https)* | Live Service Monitoring & Alerting | 🛡️ **Guarded by Authelia SSO** |
 | **pgAdmin 4** | `http://pgadmin.mew.lab` *(https)* | Centralized PostgreSQL Web Administration | 🛡️ **Guarded by Authelia SSO** |
-| **Nextcloud** | `http://cloud.mew.lab` *(https)* | Private Cloud Storage, Photos & WebDAV | Set on first onboarding |
+| **Nextcloud** | `http://cloud.mew.lab` *(https)* | Private Cloud Storage, Photos & WebDAV | `admin` / `admin123` |
 | **PostgreSQL** | `postgres:5432` *(Internal Network)* | Relational Database Engine (DBaaS) | `admin` / `admin123` (`homelab` db) |
 | **Redis Cache** | `redis:6379` *(Internal Network)* | In-Memory Cache & Message Queue Layer | `admin123` |
-| **Authelia SSO** | `http://auth.mew.lab` *(https)* | Centralized Single Sign-On & 2FA Gateway | `admin` / `password` |
+| **Authelia SSO** | `http://auth.mew.lab` *(https)* | Centralized Single Sign-On & 2FA Gateway | `admin` หรือ `mew` / `admin123` |
 
 ---
 
@@ -130,6 +130,15 @@ make apply-local
 
 ---
 
+## 🔒 Security & Secrets Management Architecture
+
+To maintain strict security on a **Public Repository** while providing continuous GitOps deployment:
+1. **Secret Decoupling:** All plain-text passwords and fallback strings (`:-admin123`, `:-a_very_secure_...`) are removed from Git-tracked manifests (`compose.yaml`, `configuration.yml`, `.env.example`).
+2. **Server Secret Contract:** The single source of truth for runtime secrets is `/data/docker/.env` residing exclusively on the host server (`mew@homelab`), strictly excluded from Git.
+3. **Container Ingestion:** Docker Compose injects credentials via standard environment variables (`AUTHELIA_STORAGE_POSTGRES_PASSWORD`, `REDIS_PASSWORD`, etc.), preventing credential leaks during deployment.
+
+---
+
 ## 🔒 Security & Secrets Warning
-**NEVER** commit plain-text passwords, SSH private keys, tokens, or `.env` files directly into this repository. All confidential parameters rely on local `.env` files and strictly excluded Git ignore templates.
+**NEVER** commit plain-text passwords, SSH private keys, tokens, or `.env` files directly into this repository. All confidential parameters rely on local `/data/docker/.env` on the host and strictly excluded Git ignore templates.
 

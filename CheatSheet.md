@@ -83,14 +83,16 @@ git pull origin main
 
 | บริการ (Service) | พอร์ต / ลิงก์เข้าเว็บ | หน้าที่รับผิดชอบ | ข้อมูลล็อกอินเริ่มต้น (Credentials) |
 | :--- | :--- | :--- | :--- |
-| **Portainer CE** | `https://homelab:9443`<br>*(หรือ `https://100.116.167.3:9443`)* | แผงควบคุมกดคลอด ตรวจสอบ และสั่งการ Docker Container ผ่านปุ่มบนเว็บ โดยไม่ต้องพิมพ์คำสั่ง | *ตั้งค่ารหัสผ่านใหม่เองในการเข้าใช้งานครั้งแรก* |
-| **Grafana** | `http://homelab:3000`<br>*(หรือ `http://100.116.167.3:3000`)* | ห้องบัญชาการจอภาพ Mission Control สไตล์ NASA/Cyberpunk แปลงตัวเลขเป็นกราฟิกสวยหรู 24 ชั่วโมง | **User:** `admin`<br>**Pass:** `admin123` *(ระบบจะให้ตั้งใหม่)* |
-| **VictoriaMetrics** | `http://100.116.167.3:8428` | เครื่องยนต์ Time-Series Database ที่เก็บข้อมูลชีพจร (เร็วกว่า และประหยัดแรมกว่า Prometheus 5 เท่า!) | - |
-| **Traefik** | `http://100.116.167.3:80`<br>`https://100.116.167.3:443` | ตำรวจจราจรผู้แจกแจง Domain name และ SSL Certificate ให้ทุกแอปในบ้าน (Edge Ingress Gateway) | - |
-| **AdGuard Home** | `http://adguard.homelab.lan`<br>`http://100.116.167.3:8081` | ศูนย์ควบคุม DNS และหลุมดำดูดโฆษณา (Ad-blocker) สำหรับทุกอุปกรณ์ในบ้าน | *ตั้งค่ารหัสผ่านใหม่ในการเข้าใช้งานครั้งแรก* |
-| **Vaultwarden** | `https://vaultwarden.homelab.ts.net` | ตู้เซฟรหัสผ่านส่วนตัวสุดปลอดภัย (ต้องเข้าผ่าน HTTPS เสมอ เพื่อให้ระบบเข้ารหัสทำงานได้) | *ตั้งค่ารหัสผ่านใหม่ในการเข้าใช้งานครั้งแรก* |
-| **Uptime Kuma** | `http://kuma.homelab.lan` | ยามเฝ้าระวังเซิร์ฟเวอร์ คอยแจ้งเตือนผ่าน Telegram/Discord ทันทีถ้าระบบหรือเน็ตเวิร์กล่ม | *ตั้งค่ารหัสผ่านใหม่ในการเข้าใช้งานครั้งแรก* |
-| **pgAdmin 4** | `http://pgadmin.mew.lab` | แดชบอร์ดบริหารจัดการฐานข้อมูลกลาง (PostgreSQL DBaaS) | **Email:** `admin@mew.lab`<br>**Pass:** `admin123` |
+| **Homepage** | `http://home.mew.lab` | หน้าแดชบอร์ดศูนย์กลางรวมทุกแอปในบ้าน และมาตรวัดทรัพยากรเรียลไทม์ | ไม่ต้องล็อกอิน (เข้าผ่านแลน/Tailscale) |
+| **Portainer CE** | `http://portainer.mew.lab`<br>*(หรือ `https://100.116.167.3:9443`)* | แผงควบคุม ตรวจสอบ และสั่งการ Docker Container ผ่านปุ่มบนเว็บ | 🛡️ **Guarded by Authelia SSO** |
+| **Grafana** | `http://grafana.mew.lab` | ห้องบัญชาการจอภาพ Mission Control สไตล์ NASA แปลงตัวเลขเป็นกราฟิกสวยหรู 24 ชั่วโมง | **User:** `admin`<br>**Pass:** `admin123` |
+| **VictoriaMetrics** | `http://vmetrics.mew.lab`<br>*(หรือ `:8428`)* | เครื่องยนต์ Time-Series Database ที่เก็บข้อมูลชีพจร (ประหยัดแรมกว่า Prometheus 5 เท่า) | ภายในระบบ (Prometheus Scrape API) |
+| **Traefik** | `http://traefik.mew.lab` | ตำรวจจราจรผู้แจกแจง Domain name และ SSL Certificate ให้ทุกแอปในบ้าน (Edge Ingress) | 🛡️ **Guarded by Authelia SSO** |
+| **AdGuard Home** | `http://adguard.mew.lab`<br>*(หรือ `:8081`)* | ศูนย์ควบคุม DNS และหลุมดำดูดโฆษณา (Ad-blocker) ประจำบ้าน | **User:** `admin` หรือ `mew`<br>**Pass:** `admin123` |
+| **Vaultwarden** | `https://homelab.tail35e4b4.ts.net` | ตู้เซฟรหัสผ่านส่วนตัวสุดปลอดภัย (เข้าผ่าน Tailscale HTTPS) | ล็อกอินด้วยบัญชีส่วนตัว |
+| **Uptime Kuma** | `http://kuma.mew.lab` | ยามเฝ้าระวังเซิร์ฟเวอร์ คอยแจ้งเตือนผ่าน Telegram/Discord ทันทีถ้าระบบหรือเน็ตเวิร์กล่ม | 🛡️ **Guarded by Authelia SSO** |
+| **pgAdmin 4** | `http://pgadmin.mew.lab` | แดชบอร์ดบริหารจัดการฐานข้อมูลกลาง (PostgreSQL DBaaS) | 🛡️ **Guarded by Authelia SSO**<br>(Master DB: `admin@mew.lab` / `admin123`) |
+| **Nextcloud** | `http://cloud.mew.lab` | ไดรฟ์คลาวด์ส่วนตัว ซิงค์ไฟล์ รูปภาพ และสำรองข้อมูลจากมือถือ | **User:** `admin`<br>**Pass:** `admin123` |
 | **PostgreSQL** | `postgres:5432` *(Internal)* | ฐานข้อมูล Relational Database กลางสำหรับแอปทั้งบ้าน | **User:** `admin`<br>**DB:** `homelab` |
 | **Redis Cache** | `redis:6379` *(Internal)* | In-Memory Cache & Message Queue Layer | `admin123` |
 | **Authelia SSO** | `http://auth.mew.lab` | ศูนย์กลางยืนยันตัวตน Single Sign-On และ 2FA Gateway | **User:** `admin` หรือ `mew`<br>**Pass:** `admin123` *(หรือ OTP)* |
@@ -373,6 +375,41 @@ docker exec -u www-data -it nextcloud php occ config:system:set trusted_domains 
 
 # 6. คำสั่งรีเซ็ตรหัสผ่านแอดมินหรือผู้ใช้ฉุกเฉิน
 docker exec -u www-data -it nextcloud php occ user:resetpassword admin
+```
+
+---
+
+## 🛡️ 13. คัมภีร์ระบบความปลอดภัยและการจัดการ Secret (Enterprise Secret Contract & SRE Hardening)
+
+### 🏛️ สถาปัตยกรรมการแยกขาดข้อมูลลับ (GitOps Secret Decoupling)
+1. **Public Repository Hygiene:** ไฟล์ที่อยู่ใน Git (`compose.yaml`, `configuration.yml`, `.env.example`) **จะไม่มีรหัสผ่านจริงหรือ Fallback อ่อนแอ (`admin123`) ฝังอยู่เด็ดขาด**
+2. **Server Secret Contract:** ค่ารหัสผ่านทั้งหมดจะสถิตอยู่ที่ไฟล์ `/data/docker/.env` บนเครื่องเซิร์ฟเวอร์ `mew@homelab` เพียงที่เดียวเท่านั้น
+3. **Container Environment Injection:** Docker Compose จะดึงค่าจาก `.env` ไปจ่ายให้คอนเทนเนอร์แต่ละตัวผ่าน Environment Variables อัตโนมัติ
+
+---
+
+### 🚨 คัมภีร์กู้ชีพและรีเซ็ตรหัสผ่านฉุกเฉินทุกระบบ (Emergency Password & Access Runbook)
+
+| บริการ (Service) | วิธีรีเซ็ตรหัสผ่านฉุกเฉิน / กู้คืนระบบผ่าน CLI |
+| :--- | :--- |
+| **🩺 Uptime Kuma** | `docker exec -it uptime-kuma npm run reset-password` *(เลือก user แล้วพิมพ์รหัสใหม่)* |
+| **🛡️ AdGuard Home** | • **แก้รหัสเป็น admin123:**<br>`HASH=$(docker run --rm httpd:alpine htpasswd -B -n -b admin admin123 \| cut -d: -f2)`<br>`sudo sed -i "s\|password:.*\|password: '$HASH'\|g" /data/docker/adguardhome/conf/AdGuardHome.yaml`<br>• **ปลดแบน IP ที่โดนบล็อก (Rate Limit):**<br>`sudo rm -f /ssd-data/adguardhome/work/data/sessions.db && docker restart adguardhome` |
+| **☁️ Nextcloud** | `docker exec -u www-data -it nextcloud php occ user:resetpassword admin` |
+| **🐘 PostgreSQL** | `docker exec -it postgres psql -U admin -d homelab -c "ALTER USER admin WITH PASSWORD 'YourNewPassword';"` |
+| **🔑 Authelia SSO** | • สร้างแฮชรหัสผ่านใหม่:<br>`docker exec -it authelia authelia crypto hash generate argon2 --password 'NewPassword'`<br>• นำก้อนแฮชไปใส่ใน `/data/docker/authelia/config/users_database.yml` แล้วสั่ง `docker restart authelia` |
+
+---
+
+### 🔍 สคริปต์ตรวจความสมบูรณ์ของ `/data/docker/.env` ก่อน Deploy (Read-Only & Safe)
+```bash
+python3 -c "
+import os
+required = ['TZ','DOMAIN_NAME','GRAFANA_PASSWORD','POSTGRES_USER','POSTGRES_PASSWORD','POSTGRES_DB','PGADMIN_DEFAULT_EMAIL','PGADMIN_DEFAULT_PASSWORD','REDIS_PASSWORD','AUTHELIA_JWT_SECRET','AUTHELIA_SESSION_SECRET','AUTHELIA_STORAGE_ENCRYPTION_KEY','VAULTWARDEN_ADMIN_TOKEN']
+with open('/data/docker/.env') as f:
+    keys = [line.strip().split('=')[0] for line in f if '=' in line and not line.startswith('#')]
+missing = [k for k in required if k not in keys]
+print('✅ [PASS] Contract Validated!' if not missing else f'❌ [MISSING]: {missing}')
+"
 ```
 
 ---

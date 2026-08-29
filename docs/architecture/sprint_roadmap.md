@@ -149,3 +149,12 @@ Before closing Sprint 1 and moving to Sprint 2, the following conditions must be
 - [x] Automate Nextcloud directory provisioning and UID `33:33` (`www-data`) permissions via Ansible deploy playbook.
 - [x] Configure `trusted_domains` and establish 24/7 HTTP status health monitoring in Uptime Kuma (`http://nextcloud/status.php`).
 - [x] Add Nextcloud tile to Homepage dashboard with responsive 4-column grid layout and document maintenance OCC commands in CheatSheet.md.
+
+### 🏆 Security Hardening Milestone: Secret Decoupling & Server Contract Validation (Completed)
+- [x] **Pure Secret Decoupling (Phase 1):** Remove all plain-text passwords and fallback strings (`:-admin123`, `:-a_very_secure_...`) from Git-tracked manifests (`compose.yaml`, `configuration.yml`, `.env.example`).
+- [x] **Hygiene Hardening:** Fix `.gitignore` typos and exclude all local secret variants.
+- [x] **Authelia Secret Decoupling:** Configure Authelia to inherit PostgreSQL/Redis credentials dynamically from environment variables without plain-text fallbacks in `configuration.yml`.
+- [x] **AdGuard Port & User Reconciliation:** Fix Traefik backend routing to port 3000 (`adguard.mew.lab`), configure standard bcrypt hashing, and resolve rate-limiting locks.
+- [x] **Server Secret Contract (Phase 2):** Implement pre-flight Python contract validation to verify that host-only `/data/docker/.env` contains all required variables.
+- [x] **Zero-Incident Reconcile:** Successfully reconcile entire 17-container stack via `make apply-local` without runtime downtime or broken dependencies.
+
