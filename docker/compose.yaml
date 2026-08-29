@@ -159,6 +159,7 @@ services:
       - victoriametrics
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=homelab_proxy"
       - "traefik.http.routers.grafana.rule=Host(`grafana.mew.lab`)"
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
 
@@ -240,6 +241,7 @@ services:
       - internal
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=homelab_proxy"
       - "traefik.http.routers.kuma.rule=Host(`kuma.mew.lab`)"
       - "traefik.http.routers.kuma.middlewares=authelia@docker"
       - "traefik.http.services.kuma.loadbalancer.server.port=3001"
@@ -266,6 +268,7 @@ services:
       - internal
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=homelab_proxy"
       - "traefik.http.routers.homepage.rule=Host(`home.mew.lab`)"
       - "traefik.http.services.homepage.loadbalancer.server.port=3000"
 
