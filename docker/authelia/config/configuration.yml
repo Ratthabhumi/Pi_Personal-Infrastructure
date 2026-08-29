@@ -66,6 +66,7 @@ session:
   redis:
     host: "redis"
     port: 6379
+    password: "admin123"
     database_index: 1
 
 storage:
@@ -74,6 +75,7 @@ storage:
     database: "homelab"
     schema: "public"
     username: "admin"
+    password: "admin123"
     timeout: "5s"
 
 notifier:
