@@ -1,0 +1,11 @@
+[Unit]
+Description=HomeLab & ACASH Automated Backup Timer (E3.6 WS10 / O5)
+Documentation=file:///data/docker/scripts/automation/README.md
+
+[Timer]
+OnCalendar=*-*-* 03:00:00 UTC
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,65 @@
+---
+# ==============================================================================
+# HOMELAB & ACASH SYSTEMD BACKUP TIMER TASK (E3.6 WS10 / O5)
+#
+# GOVERNANCE NOTICE:
+# This task file is IMPLEMENTED IN REPOSITORY ONLY.
+# Per User Instruction & Governance Rule, this timer MUST NOT be enabled/applied
+# automatically until real-host validation is performed by the operator.
+#
+# Real-host verification requires evidence of:
+# 1. Installed systemd unit
+# 2. Enabled systemd timer
+# 3. Next scheduled trigger
+# 4. Successful backup execution observed
+# ==============================================================================
+
+- name: 📁 Ensure automation scripts directory exists on host
+  ansible.builtin.file:
+    path: /data/docker/scripts/automation
+    state: directory
+    owner: mew
+    group: mew
+    mode: '0775'
+  become: true
+
+- name: 📋 Synchronize auto_backup.sh script to host
+  ansible.builtin.copy:
+    src: ../../scripts/automation/auto_backup.sh
+    dest: /data/docker/scripts/automation/auto_backup.sh
+    owner: root
+    group: root
+    mode: '0750'
+  become: true
+
+- name: ⏱️ Template systemd backup service unit
+  ansible.builtin.template:
+    src: ../../templates/homelab-backup.service.j2
+    dest: /etc/systemd/system/homelab-backup.service
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+
+- name: ⏱️ Template systemd backup timer unit (03:00 UTC Daily)
+  ansible.builtin.template:
+    src: ../../templates/homelab-backup.timer.j2
+    dest: /etc/systemd/system/homelab-backup.timer
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+
+# NOTE: Activation tasks below are intentionally deferred until
+# real-HomeLab validation gate is authorized.
+# - name: 🔄 Reload systemd daemon
+#   ansible.builtin.systemd:
+#     daemon_reload: true
+#   become: true
+#
+# - name: 🚀 Enable and start homelab-backup timer
+#   ansible.builtin.systemd:
+#     name: homelab-backup.timer
+#     enabled: true
+#     state: started
+#   become: true

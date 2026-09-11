@@ -19,9 +19,28 @@
         mode: '0775'
       become: true
 
-    - name: 🔧 Ensure /data/docker is writable by mew user (via Docker)
+    - name: 🛡️ Preflight Census Guard for ACASH UID/GID 10001 (O6)
+      ansible.builtin.shell: |
+        set -e
+        CONFLICT_USER=$(awk -F: '$3 == 10001 {print $1}' /etc/passwd || true)
+        CONFLICT_GROUP=$(awk -F: '$3 == 10001 {print $1}' /etc/group || true)
+        if [ -n "$CONFLICT_USER" ] && [ "$CONFLICT_USER" != "paper" ]; then
+          echo "COLLISION: UID 10001 occupied by host user '$CONFLICT_USER'. STOP and report (O6)." >&2
+          exit 1
+        fi
+        if [ -n "$CONFLICT_GROUP" ] && [ "$CONFLICT_GROUP" != "paper" ]; then
+          echo "COLLISION: GID 10001 occupied by host group '$CONFLICT_GROUP'. STOP and report (O6)." >&2
+          exit 1
+        fi
+        echo "CENSUS GUARD PASS: UID/GID 10001 is unallocated or assigned to paper."
+      become: true
+      changed_when: false
+
+    - name: 🔧 Ensure /data/docker subdirectories are writable by mew user (excluding ACASH)
       ansible.builtin.command:
-        cmd: docker run --rm -v /data/docker:/data alpine chown -R 1000:1000 /data
+        cmd: >
+          docker run --rm -v /data/docker:/data alpine sh -c
+          "find /data -mindepth 1 -maxdepth 1 ! -name 'acash' -exec chown -R 1000:1000 {} +"
       changed_when: false
 
     - name: 🧹 Remove mistakenly created directories for single-file Docker volume mounts
@@ -102,6 +121,19 @@
       become: true
       changed_when: false
       failed_when: false
+
+    - name: 🔍 Check if ACASH persistent root exists (/data/docker/acash)
+      ansible.builtin.stat:
+        path: /data/docker/acash
+      register: acash_root_stat
+
+    - name: 🔧 Ensure ACASH Persistent Root Permissions (UID/GID 10001:10001, O6)
+      ansible.builtin.command:
+        cmd: >
+          docker run --rm -v /data/docker/acash:/data alpine sh -c
+          "chown -R 10001:10001 /data && chmod -R 0770 /data"
+      when: acash_root_stat.stat.exists
+      changed_when: false
 
     - name: 🐳 Deploy Unified Production Stack via Docker Compose
       ansible.builtin.command:
