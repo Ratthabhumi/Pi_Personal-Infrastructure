@@ -1,4 +1,8 @@
 networks:
+  acash_staging:
+    name: homelab_acash_staging
+    driver: bridge
+    internal: true
   proxy:
     name: homelab_proxy
     driver: bridge
@@ -419,3 +423,39 @@ services:
       - "traefik.http.middlewares.nextcloud-dav.redirectregex.regex=https://(.*)/.well-known/(card|cal)dav"
       - "traefik.http.middlewares.nextcloud-dav.redirectregex.replacement=https://$${1}/remote.php/dav/"
       - "traefik.http.routers.nextcloud.middlewares=nextcloud-dav"
+
+  acash-staging:
+    # PROVENANCE NOTE (WS10 / D7.2): Built from verified immutable base image
+    # Base Image RepoDigest: python@sha256:9d2e5553305c7c7b0097999bb17187c69b921ccd6bc9d40e4bb5ebe652c00285
+    image: acash:e36-ws10-staging
+    container_name: acash-staging
+    restart: "no"
+    user: "10001:10001"
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - acash_staging
+    volumes:
+      - /data/docker/acash:/data/docker/acash
+    environment:
+      - TZ=UTC
+      - ACASH_STORAGE_ROOT=/data/docker/acash
+      - ACASH_EXECUTION_MODE=STAGING_VALIDATION_ONLY
+      - ACASH_CANONICAL_CAPITAL=0
+      - NO_REAL_ORDERS=true
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 128M
+    healthcheck:
+      test: [ "CMD", "python", "-m", "acash.paper", "--help" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    labels:
+      - "traefik.enable=false"
+      - "com.centurylinklabs.watchtower.enable=false"
