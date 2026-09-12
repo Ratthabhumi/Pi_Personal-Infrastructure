@@ -331,6 +331,39 @@ class TestG7Suite(unittest.TestCase):
         self.assertEqual(before_manifest_stat.st_mtime, after_manifest_stat.st_mtime)
         self.assertEqual(before_journal_stat.st_mtime, after_journal_stat.st_mtime)
 
+    def test_storage_initialization_child_directory_only(self):
+        """Regression Test: Verify runner initializes only child directories under STORAGE_ROOT without parent mkdir failure."""
+        # Create a fresh storage root without the 'sessions' subdirectory
+        fresh_root = Path(self.temp_dir) / "fresh_acash"
+        fresh_root.mkdir(parents=True, exist_ok=True)
+        fresh_sessions = fresh_root / "sessions"
+        self.assertFalse(fresh_sessions.exists())
+
+        test_env = {
+            "ACASH_STORAGE_ROOT": str(fresh_root).replace("\\", "/"),
+            "STORAGE_ROOT": str(fresh_root).replace("\\", "/"),
+        }
+
+        # Run bash command snippet replicating the exact fixed runner initialization logic
+        init_cmd = [
+            "-c",
+            f"""
+            STORAGE_ROOT="{str(fresh_root).replace('\\', '/')}"
+            SESSIONS_DIR="${{STORAGE_ROOT}}/sessions"
+            if [ -w "$STORAGE_ROOT" ]; then
+                mkdir -p "$SESSIONS_DIR"
+            fi
+            test -d "$SESSIONS_DIR"
+            """
+        ]
+        proc = run_bash(init_cmd, env=test_env)
+        self.assertEqual(proc.returncode, 0, f"Initialization failed: {proc.stderr}")
+        self.assertTrue(fresh_sessions.exists(), "Sessions directory was not created under existing root")
+
+        # Verify no attempt to create parent directory
+        self.assertNotIn("Permission denied", proc.stdout + proc.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
+

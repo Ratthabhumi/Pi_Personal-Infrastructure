@@ -47,7 +47,7 @@ REPORT_INTERVAL_STEPS=15    # Log progress every 15 minutes (15 * 60s)
 
 INFRA_DIR="${HOME}/Pi_Personal-Infrastructure"
 if [ ! -d "$INFRA_DIR" ]; then INFRA_DIR="/data/docker/Pi_Personal-Infrastructure"; fi
-STORAGE_ROOT="/data/docker/acash"
+STORAGE_ROOT="${ACASH_STORAGE_ROOT:-${STORAGE_ROOT:-/data/docker/acash}}"
 SESSIONS_DIR="${STORAGE_ROOT}/sessions"
 
 echo -e "${BLUE}======================================================================${NC}"
@@ -65,9 +65,17 @@ echo "----------------------------------------------------------------------"
 echo -e "\n${YELLOW}>>> [STEP 1/4] Running Non-Mutating Preflight Audit...${NC}"
 bash "${INFRA_DIR}/scripts/automation/preflight_g7_soak.sh"
 
-# Ensure sessions directory exists with correct ownership
-mkdir -p "$SESSIONS_DIR"
-chown -R 10001:10001 "$STORAGE_ROOT" 2>/dev/null || true
+# Ensure required child storage directory exists with correct 10001:10001 ownership
+echo "Ensuring session storage directory is initialized..."
+if [ -w "$STORAGE_ROOT" ]; then
+    mkdir -p "$SESSIONS_DIR"
+elif command -v docker >/dev/null 2>&1; then
+    docker run --rm \
+        --user 10001:10001 \
+        -v "${STORAGE_ROOT}:${STORAGE_ROOT}" \
+        acash:e36-ws10-staging \
+        python -c "import pathlib; pathlib.Path('${SESSIONS_DIR}').mkdir(parents=True, exist_ok=True)"
+fi
 
 # -----------------------------------------------------------------------------
 # STEP 2: Launch Soak Container via Compose
