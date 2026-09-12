@@ -256,12 +256,46 @@ VM_SCRAPE_URL=""
 VM_LAST_SCRAPE=""
 VM_ERROR=""
 
+# Helper: Query VictoriaMetrics API directly (Port 8428 is intentionally internal)
+vm_query() {
+    local path="$1"
+    local res=""
+    # 1. Direct container exec (clean, decoupled from host port publishing)
+    res=$(docker exec victoriametrics wget -qO- "http://127.0.0.1:8428${path}" 2>/dev/null || true)
+    if [ -n "$res" ]; then
+        echo "$res"
+        return 0
+    fi
+    # 2. Container bridge IP
+    local vm_ip
+    vm_ip=$(docker inspect victoriametrics --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{break}}{{end}}' 2>/dev/null || true)
+    if [ -n "$vm_ip" ]; then
+        res=$(curl -s "http://${vm_ip}:8428${path}" 2>/dev/null || true)
+        if [ -n "$res" ]; then
+            echo "$res"
+            return 0
+        fi
+    fi
+    # 3. Host localhost fallback
+    curl -s "http://localhost:8428${path}" 2>/dev/null || true
+}
+
+vm_reload() {
+    local vm_ip
+    vm_ip=$(docker inspect victoriametrics --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{break}}{{end}}' 2>/dev/null || true)
+    if [ -n "$vm_ip" ]; then
+        curl -s -X POST "http://${vm_ip}:8428/-/reload" >/dev/null 2>&1 || true
+    else
+        docker exec victoriametrics wget -qO- --post-data="" "http://127.0.0.1:8428/-/reload" >/dev/null 2>&1 || true
+    fi
+}
+
 # Trigger reload endpoint in case of runtime scrape configuration update
-curl -s -X POST http://localhost:8428/-/reload >/dev/null 2>&1 || true
+vm_reload
 
 # Allow up to 30 seconds for VictoriaMetrics scrape loop (scrape_interval: 15s)
 for i in $(seq 1 15); do
-    TARGETS_JSON=$(curl -s http://localhost:8428/api/v1/targets 2>/dev/null || true)
+    TARGETS_JSON=$(vm_query "/api/v1/targets")
     # Check both activeTargets (standard Prometheus API) and targets (alternative VictoriaMetrics schema)
     TARGET_MATCH=$(echo "$TARGETS_JSON" | jq '.data | (.activeTargets // .targets // [])[] | select((.labels.job // .scrapePool // "") == "acash-paper")' 2>/dev/null || true)
     if [ -n "$TARGET_MATCH" ] && [ "$TARGET_MATCH" != "null" ]; then
@@ -275,7 +309,7 @@ for i in $(seq 1 15); do
     fi
 
     # PromQL fallback check: verify if VictoriaMetrics has ingested active scrape series up{job="acash-paper"} == 1
-    UP_VAL=$(curl -s 'http://localhost:8428/api/v1/query?query=up%7Bjob=%22acash-paper%22%7D' 2>/dev/null | jq -r '.data.result[0].value[1] // empty' 2>/dev/null || true)
+    UP_VAL=$(vm_query '/api/v1/query?query=up%7Bjob=%22acash-paper%22%7D' | jq -r '.data.result[0].value[1] // empty' 2>/dev/null || true)
     if [ "$UP_VAL" = "1" ]; then
         VM_STATE="up"
         if [ -z "$VM_SCRAPE_URL" ]; then
@@ -301,7 +335,7 @@ if [ "$VM_STATE" != "up" ]; then
     echo "  /api/v1/targets data keys: $(echo "$TARGETS_JSON" | jq '.data | keys' 2>/dev/null || echo "N/A")"
     echo "  Raw activeTargets jobs: $(echo "$TARGETS_JSON" | jq '[.data.activeTargets[].labels.job]' 2>/dev/null || echo "None")"
     echo "  Raw targets jobs: $(echo "$TARGETS_JSON" | jq '[.data.targets[].labels.job]' 2>/dev/null || echo "None")"
-    echo "  PromQL up series: $(curl -s 'http://localhost:8428/api/v1/query?query=up' 2>/dev/null | jq '[.data.result[].metric]' 2>/dev/null || echo "None")"
+    echo "  PromQL up series: $(vm_query '/api/v1/query?query=up' | jq '[.data.result[].metric]' 2>/dev/null || echo "None")"
 fi
 
 if [ "$VM_STATE" = "up" ]; then
@@ -329,7 +363,7 @@ CADVISOR_RAW=$(docker compose exec victoriametrics wget -qO- http://cadvisor:808
 CADVISOR_SAMPLE=$(echo "$CADVISOR_RAW" | grep 'container_cpu_usage_seconds_total' | grep -E 'name="acash-staging"|acash-staging' | head -n 1 || true)
 
 # Also check VictoriaMetrics PromQL engine for ingested cAdvisor series
-VM_CADVISOR_QUERY=$(curl -s 'http://localhost:8428/api/v1/query?query=container_cpu_usage_seconds_total%7Bname=%22acash-staging%22%7D' 2>/dev/null || true)
+VM_CADVISOR_QUERY=$(vm_query '/api/v1/query?query=container_cpu_usage_seconds_total%7Bname=%22acash-staging%22%7D')
 VM_CADVISOR_SERIES=$(echo "$VM_CADVISOR_QUERY" | jq -r '.data.result[0].metric.name // empty' 2>/dev/null || true)
 
 echo "cAdvisor Metric Evidence:"
