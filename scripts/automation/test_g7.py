@@ -363,7 +363,30 @@ class TestG7Suite(unittest.TestCase):
         # Verify no attempt to create parent directory
         self.assertNotIn("Permission denied", proc.stdout + proc.stderr)
 
+    def test_storage_initialization_docker_entrypoint_override(self):
+        """Regression Test: Verify execute_g7_soak.sh uses --entrypoint python and does not pass python to acash.paper."""
+        execute_script = REPO_ROOT / "scripts" / "automation" / "execute_g7_soak.sh"
+        with open(execute_script, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        # 1. Must contain --entrypoint python
+        self.assertIn("--entrypoint python", content, "execute_g7_soak.sh must specify --entrypoint python to bypass acash.paper entrypoint")
+
+        # 2. Must not pass python as argument after image name
+        self.assertNotIn(
+            "acash:e36-ws10-staging \\\n        python -c",
+            content,
+            "execute_g7_soak.sh must not pass 'python' as positional subcommand argument to acash.paper"
+        )
+
+        # 3. Must preserve unprivileged container user 10001:10001
+        self.assertIn("--user 10001:10001", content, "execute_g7_soak.sh must preserve --user 10001:10001")
+
+        # 4. Must mount only storage root
+        self.assertIn('-v "${STORAGE_ROOT}:${STORAGE_ROOT}"', content, "execute_g7_soak.sh must mount only STORAGE_ROOT")
+
 
 if __name__ == "__main__":
     unittest.main()
+
 

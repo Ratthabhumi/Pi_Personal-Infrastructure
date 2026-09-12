@@ -72,9 +72,10 @@ if [ -w "$STORAGE_ROOT" ]; then
 elif command -v docker >/dev/null 2>&1; then
     docker run --rm \
         --user 10001:10001 \
+        --entrypoint python \
         -v "${STORAGE_ROOT}:${STORAGE_ROOT}" \
         acash:e36-ws10-staging \
-        python -c "import pathlib; pathlib.Path('${SESSIONS_DIR}').mkdir(parents=True, exist_ok=True)"
+        -c "import pathlib; pathlib.Path('${SESSIONS_DIR}').mkdir(parents=True, exist_ok=True)"
 fi
 
 # -----------------------------------------------------------------------------
