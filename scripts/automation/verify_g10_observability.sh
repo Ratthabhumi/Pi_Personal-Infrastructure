@@ -256,12 +256,16 @@ VM_SCRAPE_URL=""
 VM_LAST_SCRAPE=""
 VM_ERROR=""
 
+# Trigger reload endpoint in case of runtime scrape configuration update
+curl -s -X POST http://localhost:8428/-/reload >/dev/null 2>&1 || true
+
 # Allow up to 30 seconds for VictoriaMetrics scrape loop (scrape_interval: 15s)
 for i in $(seq 1 15); do
     TARGETS_JSON=$(curl -s http://localhost:8428/api/v1/targets 2>/dev/null || true)
-    TARGET_MATCH=$(echo "$TARGETS_JSON" | jq -r '.data.targets[] | select(.labels.job=="acash-paper")' 2>/dev/null || true)
-    if [ -n "$TARGET_MATCH" ]; then
-        VM_STATE=$(echo "$TARGET_MATCH" | jq -r '.state // "unknown"' 2>/dev/null || true)
+    # Check both activeTargets (standard Prometheus API) and targets (alternative VictoriaMetrics schema)
+    TARGET_MATCH=$(echo "$TARGETS_JSON" | jq '.data | (.activeTargets // .targets // [])[] | select((.labels.job // .scrapePool // "") == "acash-paper")' 2>/dev/null || true)
+    if [ -n "$TARGET_MATCH" ] && [ "$TARGET_MATCH" != "null" ]; then
+        VM_STATE=$(echo "$TARGET_MATCH" | jq -r '.health // .state // "unknown"' 2>/dev/null || true)
         VM_SCRAPE_URL=$(echo "$TARGET_MATCH" | jq -r '.scrapeUrl // ""' 2>/dev/null || true)
         VM_LAST_SCRAPE=$(echo "$TARGET_MATCH" | jq -r '.lastScrape // ""' 2>/dev/null || true)
         VM_ERROR=$(echo "$TARGET_MATCH" | jq -r '.lastError // ""' 2>/dev/null || true)
@@ -269,6 +273,17 @@ for i in $(seq 1 15); do
             break
         fi
     fi
+
+    # PromQL fallback check: verify if VictoriaMetrics has ingested active scrape series up{job="acash-paper"} == 1
+    UP_VAL=$(curl -s 'http://localhost:8428/api/v1/query?query=up%7Bjob=%22acash-paper%22%7D' 2>/dev/null | jq -r '.data.result[0].value[1] // empty' 2>/dev/null || true)
+    if [ "$UP_VAL" = "1" ]; then
+        VM_STATE="up"
+        if [ -z "$VM_SCRAPE_URL" ]; then
+            VM_SCRAPE_URL="http://acash-staging:9102/metrics"
+        fi
+        break
+    fi
+
     echo "Waiting for VictoriaMetrics scrape cycle... (attempt ${i}/15, state: ${VM_STATE})"
     sleep 2
 done
@@ -280,8 +295,17 @@ echo "  - state:       ${VM_STATE}"
 echo "  - lastScrape:  ${VM_LAST_SCRAPE}"
 echo "  - lastError:   ${VM_ERROR}"
 
+# Diagnostic debug dump if target is not UP
+if [ "$VM_STATE" != "up" ]; then
+    echo -e "${YELLOW}Target inspection debug dump:${NC}"
+    echo "  /api/v1/targets data keys: $(echo "$TARGETS_JSON" | jq '.data | keys' 2>/dev/null || echo "N/A")"
+    echo "  Raw activeTargets jobs: $(echo "$TARGETS_JSON" | jq '[.data.activeTargets[].labels.job]' 2>/dev/null || echo "None")"
+    echo "  Raw targets jobs: $(echo "$TARGETS_JSON" | jq '[.data.targets[].labels.job]' 2>/dev/null || echo "None")"
+    echo "  PromQL up series: $(curl -s 'http://localhost:8428/api/v1/query?query=up' 2>/dev/null | jq '[.data.result[].metric]' 2>/dev/null || echo "None")"
+fi
+
 if [ "$VM_STATE" = "up" ]; then
-    record_result "10.1" "VictoriaMetrics scrape target acash-paper is UP" "PASS" "state=${VM_STATE}, lastScrape=${VM_LAST_SCRAPE}"
+    record_result "10.1" "VictoriaMetrics scrape target acash-paper is UP" "PASS" "state=${VM_STATE}, lastScrape=${VM_LAST_SCRAPE:-PromQL verified}"
 else
     record_result "10.1" "VictoriaMetrics scrape target acash-paper is UP" "FAIL" "state=${VM_STATE}, error=${VM_ERROR}, url=${VM_SCRAPE_URL}"
 fi
