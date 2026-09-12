@@ -2,7 +2,7 @@
 # ==============================================================================
 # SCRIPT: verify_g10_observability.sh
 # PURPOSE: Real-Host Verification Matrix for Gate G10 (Observability Remediation)
-# HARD STOP: Strictly verifies G10. Does NOT start G7/S11 72h soak or Paper Auth.
+# HARD STOP: Strictly verifies G10. Does NOT start G7/S11 soak or Paper Auth.
 # ==============================================================================
 set -euo pipefail
 
