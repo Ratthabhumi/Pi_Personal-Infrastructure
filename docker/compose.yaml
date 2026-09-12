@@ -97,6 +97,7 @@ services:
     networks:
       - proxy
       - internal
+      - acash_staging
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.vmetrics.rule=Host(`vmetrics.mew.lab`)"
@@ -443,6 +444,11 @@ services:
       - ACASH_EXECUTION_MODE=STAGING_VALIDATION_ONLY
       - ACASH_CANONICAL_CAPITAL=0
       - NO_REAL_ORDERS=true
+    command:
+      - "run"
+      - "--provider=binance"
+      - "--symbol=BTCUSDT"
+      - "--storage=/data/docker/acash/sessions"
     deploy:
       resources:
         limits:

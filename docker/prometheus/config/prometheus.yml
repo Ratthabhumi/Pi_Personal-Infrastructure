@@ -28,3 +28,11 @@ scrape_configs:
       - targets: ['cadvisor:8080']
         labels:
           engine: 'docker-ce'
+
+  # 4. Scrape ACASH Paper Engine operational metrics (E3.6 / WS9 / D13.1)
+  - job_name: 'acash-paper'
+    static_configs:
+      - targets: ['acash-staging:9102']
+        labels:
+          tier: 'execution-infrastructure'
+          mode: 'paper-staging'
