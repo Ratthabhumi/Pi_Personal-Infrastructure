@@ -12,7 +12,7 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-STORAGE_ROOT="/data/docker/acash"
+STORAGE_ROOT="${ACASH_STORAGE_ROOT:-${STORAGE_ROOT:-/data/docker/acash}}"
 SESSIONS_DIR="${STORAGE_ROOT}/sessions"
 
 SESSION_ID="${1:-}"
@@ -44,6 +44,40 @@ SNAPSHOT_FILE="${SESSIONS_DIR}/${SESSION_ID}.snapshots.jsonl"
 
 FAILURES=0
 
+# Robust JSON field extractor (jq with python fallback)
+get_json_field() {
+    local file="$1"
+    local field="$2"
+    if [ ! -f "$file" ]; then echo ""; return 0; fi
+    if command -v jq >/dev/null 2>&1; then
+        jq -r ".${field} // empty" "$file" 2>/dev/null || true
+    else
+        python -c "import json, sys; d=json.load(open(sys.argv[1], encoding='utf-8')); val=d.get(sys.argv[2], ''); print('' if val is None else val)" "$file" "$field" 2>/dev/null || true
+    fi
+}
+
+# Robust journal timestamp extractor (jq with python fallback)
+get_journal_timestamps() {
+    local file="$1"
+    if [ ! -f "$file" ]; then return 0; fi
+    if command -v jq >/dev/null 2>&1; then
+        grep '"event_type": "MARKET_BAR_RECEIVED"' "$file" 2>/dev/null \
+            | jq -r '.payload.timestamp_utc // .event_time_utc // empty' 2>/dev/null || true
+    else
+        python -c "
+import json, sys
+with open(sys.argv[1], 'r', encoding='utf-8') as f:
+    for line in f:
+        if '\"event_type\": \"MARKET_BAR_RECEIVED\"' in line:
+            try:
+                ev = json.loads(line)
+                ts = ev.get('payload', {}).get('timestamp_utc') or ev.get('event_time_utc')
+                if ts: print(ts)
+            except Exception: pass
+" "$file" 2>/dev/null || true
+    fi
+}
+
 record_check() {
     local num="$1"
     local desc="$2"
@@ -63,20 +97,47 @@ record_check() {
     fi
 }
 
+# -----------------------------------------------------------------------------
 # 1. Manifest Presence and Sealed Status
+# -----------------------------------------------------------------------------
 if [ -f "$MANIFEST_FILE" ]; then
-    SEALED_VAL=$(jq -r '.sealed // false' "$MANIFEST_FILE" 2>/dev/null || echo "false")
-    GIT_COMMIT=$(jq -r '.git_commit // "unknown"' "$MANIFEST_FILE" 2>/dev/null || echo "unknown")
+    SEALED_VAL=$(get_json_field "$MANIFEST_FILE" "sealed")
+    GIT_COMMIT=$(get_json_field "$MANIFEST_FILE" "git_commit")
     if [ "$SEALED_VAL" = "true" ]; then
-        record_check "1.1" "Manifest sealed status verified" "PASS" "sealed=true, git_commit=${GIT_COMMIT}"
+        record_check "1.1" "Manifest sealed status verified" "PASS" "sealed=true, git_commit=${GIT_COMMIT:-unknown}"
     else
         record_check "1.1" "Manifest sealed status verified" "FAIL" "sealed=${SEALED_VAL}"
+    fi
+
+    M_NO_REAL=$(get_json_field "$MANIFEST_FILE" "no_real_orders")
+    M_ORDERS=$(get_json_field "$MANIFEST_FILE" "total_order_count")
+    if [ "$M_NO_REAL" = "true" ] && [ "$M_ORDERS" = "0" ]; then
+        record_check "1.2" "Manifest attestation: no_real_orders=true, total_orders=0" "PASS" "no_real_orders=${M_NO_REAL}, total_orders=${M_ORDERS}"
+    else
+        record_check "1.2" "Manifest attestation: no_real_orders=true, total_orders=0" "FAIL" "no_real_orders=${M_NO_REAL}, total_orders=${M_ORDERS}"
     fi
 else
     record_check "1.1" "Manifest file present" "FAIL" "Missing ${MANIFEST_FILE}"
 fi
 
-# 2. Journal SHA-256 Integrity
+# -----------------------------------------------------------------------------
+# 2. Daily Snapshot Artifact Verification (Required for Review Path)
+# -----------------------------------------------------------------------------
+if [ -f "$SNAPSHOT_FILE" ] && [ -s "$SNAPSHOT_FILE" ]; then
+    SNAP_COUNT=$(wc -l < "$SNAPSHOT_FILE" 2>/dev/null || echo "0")
+    SNAP_VALID=$(head -n 1 "$SNAPSHOT_FILE" | grep -o '"snapshot_id": "[^"]*"' | head -n 1 || true)
+    if [ -n "$SNAP_VALID" ]; then
+        record_check "2.1" "Daily snapshot artifact present and valid JSON" "PASS" "${SNAP_COUNT} snapshot(s) found"
+    else
+        record_check "2.1" "Daily snapshot artifact present and valid JSON" "FAIL" "Invalid snapshot JSON structure"
+    fi
+else
+    record_check "2.1" "Daily snapshot artifact present and non-empty" "FAIL" "Missing or empty ${SNAPSHOT_FILE}"
+fi
+
+# -----------------------------------------------------------------------------
+# 3. Journal SHA-256 Integrity Verification
+# -----------------------------------------------------------------------------
 echo -e "\n--- Running acash.paper integrity check ---"
 INTEGRITY_OUTPUT=$(docker run --rm \
     -v "${STORAGE_ROOT}:${STORAGE_ROOT}" \
@@ -85,33 +146,65 @@ INTEGRITY_OUTPUT=$(docker run --rm \
 echo "$INTEGRITY_OUTPUT"
 
 if echo "$INTEGRITY_OUTPUT" | grep -q '"status": "PASS"'; then
-    record_check "2.1" "Chained SHA-256 journal integrity verification" "PASS" "Zero violation events"
+    record_check "3.1" "Chained SHA-256 journal integrity verification" "PASS" "Zero violation events"
 else
-    record_check "2.1" "Chained SHA-256 journal integrity verification" "FAIL" "Integrity violation detected"
+    record_check "3.1" "Chained SHA-256 journal integrity verification" "FAIL" "Integrity violation detected"
 fi
 
-# 3. Bar Count & Quality Analysis
+# -----------------------------------------------------------------------------
+# 4. Bar Count & Quality Analysis (Actual Event: MARKET_BAR_RECEIVED)
+# -----------------------------------------------------------------------------
 if [ -f "$JOURNAL_FILE" ]; then
     TOTAL_EVENTS=$(wc -l < "$JOURNAL_FILE" 2>/dev/null || echo "0")
-    BAR_EVENTS=$(grep -c '"event_type": "MARKET_BAR_RECORDED"' "$JOURNAL_FILE" 2>/dev/null || echo "0")
-    DUPLICATE_TS=$(grep '"event_type": "MARKET_BAR_RECORDED"' "$JOURNAL_FILE" 2>/dev/null | jq -r '.payload.bar.timestamp' 2>/dev/null | sort | uniq -d | wc -l || echo "0")
+    BAR_EVENTS=$(grep -c '"event_type": "MARKET_BAR_RECEIVED"' "$JOURNAL_FILE" 2>/dev/null || true)
+    BAR_EVENTS=$(echo "$BAR_EVENTS" | tr -d '[:space:]')
+    
+    DUPLICATE_TS=$(get_journal_timestamps "$JOURNAL_FILE" | sort | uniq -d | wc -l)
+    DUPLICATE_TS=$(echo "$DUPLICATE_TS" | tr -d '[:space:]')
 
-    if [ "$BAR_EVENTS" -ge 350 ]; then
-        record_check "3.1" "Bar count conforms to 6-hour M1 window (>=350 bars)" "PASS" "${BAR_EVENTS} bars recorded"
+    if [ "$BAR_EVENTS" -ge 350 ] 2>/dev/null; then
+        record_check "4.1" "Bar count conforms to 6-hour M1 window (>=350 bars)" "PASS" "${BAR_EVENTS} bars recorded"
     else
-        record_check "3.1" "Bar count conforms to 6-hour M1 window (>=350 bars)" "FAIL" "Only ${BAR_EVENTS} bars recorded"
+        record_check "4.1" "Bar count conforms to 6-hour M1 window (>=350 bars)" "FAIL" "Only ${BAR_EVENTS} bars recorded"
     fi
 
-    if [ "$DUPLICATE_TS" -eq 0 ]; then
-        record_check "3.2" "Zero duplicate timestamps in feed stream" "PASS" "0 duplicates detected"
+    if [ "$DUPLICATE_TS" = "0" ]; then
+        record_check "4.2" "Zero duplicate timestamps in feed stream" "PASS" "0 duplicates detected"
     else
-        record_check "3.2" "Zero duplicate timestamps in feed stream" "FAIL" "${DUPLICATE_TS} duplicate timestamps found"
+        record_check "4.2" "Zero duplicate timestamps in feed stream" "FAIL" "${DUPLICATE_TS} duplicate timestamps found"
     fi
 else
-    record_check "3.1" "Journal file present" "FAIL" "Missing ${JOURNAL_FILE}"
+    record_check "4.1" "Journal file present" "FAIL" "Missing ${JOURNAL_FILE}"
 fi
 
-# 4. Review Package Generation (OBSERVED / MODEL / DERIVED)
+# -----------------------------------------------------------------------------
+# 5. Continuous Duration Verification (>= 21,600s / 6.00 continuous hours)
+# -----------------------------------------------------------------------------
+if [ -f "$MANIFEST_FILE" ]; then
+    DURATION_SEC=$(get_json_field "$MANIFEST_FILE" "duration_seconds")
+    if [ -z "$DURATION_SEC" ] || [ "$DURATION_SEC" = "null" ] || [ "$DURATION_SEC" = "0" ]; then
+        START_ISO=$(get_json_field "$MANIFEST_FILE" "start_time_utc")
+        END_ISO=$(get_json_field "$MANIFEST_FILE" "end_time_utc")
+        if [ -n "$START_ISO" ] && [ -n "$END_ISO" ]; then
+            DURATION_SEC=$(python -c "from datetime import datetime; s=datetime.fromisoformat('$START_ISO'); e=datetime.fromisoformat('$END_ISO'); print(int((e-s).total_seconds()))" 2>/dev/null || echo 0)
+        else
+            DURATION_SEC=0
+        fi
+    fi
+    DURATION_SEC=$(echo "$DURATION_SEC" | tr -d '[:space:]')
+
+    if [ -n "$DURATION_SEC" ] && [ "$DURATION_SEC" -ge 21600 ] 2>/dev/null; then
+        record_check "5.1" "Session duration >= 6.00 continuous hours (21,600s)" "PASS" "Duration: ${DURATION_SEC}s ($((DURATION_SEC/3600))h $(( (DURATION_SEC%3600)/60 ))m)"
+    else
+        record_check "5.1" "Session duration >= 6.00 continuous hours (21,600s)" "FAIL" "Duration: ${DURATION_SEC}s (Required: >= 21600s)"
+    fi
+else
+    record_check "5.1" "Session duration verification" "FAIL" "Missing manifest for timing audit"
+fi
+
+# -----------------------------------------------------------------------------
+# 6. Review Package Generation (OBSERVED / MODEL / DERIVED)
+# -----------------------------------------------------------------------------
 echo -e "\n--- Running acash.paper review check ---"
 REVIEW_OUTPUT=$(docker run --rm \
     -v "${STORAGE_ROOT}:${STORAGE_ROOT}" \
@@ -120,17 +213,22 @@ REVIEW_OUTPUT=$(docker run --rm \
 echo "$REVIEW_OUTPUT"
 
 if echo "$REVIEW_OUTPUT" | grep -q '"session_id"'; then
-    record_check "4.1" "E3.5 review package successfully generated" "PASS" "Manifest + reconciliation validated"
+    record_check "6.1" "E3.5 review package successfully generated" "PASS" "Manifest + reconciliation validated"
 else
-    record_check "4.1" "E3.5 review package successfully generated" "FAIL" "Review package generation failed"
+    record_check "6.1" "E3.5 review package successfully generated" "FAIL" "Review package generation failed"
 fi
 
-# 5. Security & Order Invariants
-REAL_ORDERS=$(grep -c '"event_type": "ORDER_SUBMITTED"' "$JOURNAL_FILE" 2>/dev/null || echo "0")
-if [ "$REAL_ORDERS" -eq 0 ]; then
-    record_check "5.1" "Zero real order submissions (NO_REAL_ORDERS=true)" "PASS" "0 orders submitted"
-else
-    record_check "5.1" "Zero real order submissions (NO_REAL_ORDERS=true)" "FAIL" "${REAL_ORDERS} orders detected!"
+# -----------------------------------------------------------------------------
+# 7. Security & Order Invariants
+# -----------------------------------------------------------------------------
+if [ -f "$JOURNAL_FILE" ]; then
+    REAL_ORDERS=$(grep -c '"event_type": "ORDER_SUBMITTED"' "$JOURNAL_FILE" 2>/dev/null || true)
+    REAL_ORDERS=$(echo "$REAL_ORDERS" | tr -d '[:space:]')
+    if [ "$REAL_ORDERS" = "0" ]; then
+        record_check "7.1" "Zero real order submissions in journal (NO_REAL_ORDERS=true)" "PASS" "0 orders submitted"
+    else
+        record_check "7.1" "Zero real order submissions in journal (NO_REAL_ORDERS=true)" "FAIL" "${REAL_ORDERS} orders detected!"
+    fi
 fi
 
 echo -e "\n${BLUE}======================================================================${NC}"

@@ -7,7 +7,7 @@
 #   - Continuous Binance M1 feed (BTCUSDT)
 #   - Zero crashes / restarts (RestartCount == 0)
 #   - Memory RSS bounded (< 512 MiB)
-#   - Journal + Manifest chained SHA-256 integrity PASS
+#   - Journal + Manifest + Snapshot chained SHA-256 integrity PASS
 #   - VictoriaMetrics scraping remains continuous
 #   - Final State: G7 = PASS, PAPER = NOT AUTHORIZED, LIVE = LOCKED
 # ==============================================================================
@@ -19,6 +19,27 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
+
+get_journal_timestamps() {
+    local jfile="$1"
+    if command -v jq >/dev/null 2>&1; then
+        grep '"event_type": "MARKET_BAR_RECEIVED"' "$jfile" 2>/dev/null | jq -r '.payload.timestamp_utc // .event_time_utc' 2>/dev/null || true
+    else
+        python3 -c "
+import sys, json
+try:
+    with open('$jfile', 'r', encoding='utf-8') as f:
+        for line in f:
+            if '\"event_type\": \"MARKET_BAR_RECEIVED\"' in line:
+                ev = json.loads(line)
+                ts = ev.get('payload', {}).get('timestamp_utc') or ev.get('event_time_utc')
+                if ts:
+                    print(ts)
+except Exception:
+    pass
+" 2>/dev/null || true
+    fi
+}
 
 SOAK_DURATION_SECONDS=21600 # 6.00 hours
 CHECK_INTERVAL_SECONDS=60   # Check every 1 minute
@@ -148,7 +169,7 @@ while [ "$(date +%s)" -lt "$END_EPOCH" ]; do
         # Count bars recorded in journal if available
         BAR_COUNT=0
         if [ -f "${SESSIONS_DIR}/${SESSION_ID}.journal.jsonl" ]; then
-            BAR_COUNT=$(grep -c '"event_type": "MARKET_BAR_RECORDED"' "${SESSIONS_DIR}/${SESSION_ID}.journal.jsonl" 2>/dev/null || echo "0")
+            BAR_COUNT=$(grep -c '"event_type": "MARKET_BAR_RECEIVED"' "${SESSIONS_DIR}/${SESSION_ID}.journal.jsonl" 2>/dev/null || echo "0")
         fi
 
         echo -e "[ ${CYAN}SOAK PROGRESS${NC} ] Elapsed: ${ELAPSED_FMT} | Remaining: ${REMAIN_FMT} | Bars Ingested: ${BAR_COUNT} | Mem: ${MEM_RAW} | Restarts: ${RESTARTS}"
@@ -167,14 +188,21 @@ echo -e "\n${YELLOW}>>> [STEP 4/4] Performing Bounded Graceful Shutdown & Integr
 echo "Sending SIGTERM to acash-staging (grace window: 15s)..."
 docker stop --time 15 acash-staging
 
-# Verify manifest was sealed
+# Verify manifest and snapshot files exist
 MANIFEST_FILE="${SESSIONS_DIR}/${SESSION_ID}.manifest.json"
 JOURNAL_FILE="${SESSIONS_DIR}/${SESSION_ID}.journal.jsonl"
+SNAPSHOT_FILE="${SESSIONS_DIR}/${SESSION_ID}.snapshots.jsonl"
 
 if [ -f "$MANIFEST_FILE" ]; then
     echo -e "[ ${GREEN}PASS${NC} ] Session manifest sealed: ${MANIFEST_FILE}"
 else
     echo -e "[ ${RED}FAIL${NC} ] Session manifest missing or unsealed!"
+fi
+
+if [ -f "$SNAPSHOT_FILE" ] && [ -s "$SNAPSHOT_FILE" ]; then
+    echo -e "[ ${GREEN}PASS${NC} ] Session snapshot captured: ${SNAPSHOT_FILE}"
+else
+    echo -e "[ ${RED}FAIL${NC} ] Session snapshot missing or empty!"
 fi
 
 # Run journal integrity audit
@@ -194,8 +222,8 @@ REVIEW_RESULT=$(docker run --rm \
 echo "$REVIEW_RESULT"
 
 # Bar count analysis
-FINAL_BARS=$(grep -c '"event_type": "MARKET_BAR_RECORDED"' "$JOURNAL_FILE" 2>/dev/null || echo "0")
-DUPLICATE_BARS=$(grep '"event_type": "MARKET_BAR_RECORDED"' "$JOURNAL_FILE" 2>/dev/null | jq -r '.payload.bar.timestamp' 2>/dev/null | sort | uniq -d | wc -l || echo "0")
+FINAL_BARS=$(grep -c '"event_type": "MARKET_BAR_RECEIVED"' "$JOURNAL_FILE" 2>/dev/null || echo "0")
+DUPLICATE_BARS=$(get_journal_timestamps "$JOURNAL_FILE" | sort | uniq -d | wc -l || echo "0")
 
 echo -e "\n${BLUE}======================================================================${NC}"
 echo -e "${BLUE}               GATE G7 (6-HOUR M1 SOAK) FINAL REPORT                 ${NC}"
@@ -209,7 +237,7 @@ echo "Journal SHA-256   : PASS"
 echo "Security Posture  : Preserved (UID 10001:10001, no published ports, no-new-privileges)"
 echo "Orders Placed     : ZERO (NO_REAL_ORDERS=true, Capital=$0.00)"
 echo "----------------------------------------------------------------------"
-if [ "$FINAL_BARS" -ge 350 ] && [ "$DUPLICATE_BARS" -eq 0 ] && echo "$INTEGRITY_RESULT" | grep -q '"status": "PASS"'; then
+if [ "$FINAL_BARS" -ge 350 ] && [ "$DUPLICATE_BARS" -eq 0 ] && echo "$INTEGRITY_RESULT" | grep -q '"status": "PASS"' && [ -s "$SNAPSHOT_FILE" ]; then
     echo -e "${GREEN}>>> GATE G7 / STAGE S11 RESULT: PASS <<<${NC}"
     G7_STATUS="PASS"
 else
