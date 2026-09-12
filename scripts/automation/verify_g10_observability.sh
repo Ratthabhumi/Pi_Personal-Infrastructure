@@ -68,10 +68,11 @@ git fetch origin main
 git checkout main
 git pull origin main
 INFRA_HEAD=$(git rev-parse --short HEAD)
-if [ "$INFRA_HEAD" = "fb3e74b" ]; then
-    record_result "1.2" "Pi_Personal-Infrastructure HEAD commit matches fb3e74b" "PASS" "HEAD=${INFRA_HEAD}"
+# Invariant: HEAD must contain G10 remediation commit fb3e74b as ancestor
+if git merge-base --is-ancestor fb3e74b HEAD 2>/dev/null; then
+    record_result "1.2" "Pi_Personal-Infrastructure contains G10 remediation commit fb3e74b" "PASS" "HEAD=${INFRA_HEAD} (ancestor fb3e74b verified)"
 else
-    record_result "1.2" "Pi_Personal-Infrastructure HEAD commit matches fb3e74b" "FAIL" "Expected fb3e74b, got ${INFRA_HEAD}"
+    record_result "1.2" "Pi_Personal-Infrastructure contains G10 remediation commit fb3e74b" "FAIL" "HEAD=${INFRA_HEAD} does not contain fb3e74b"
 fi
 
 # -----------------------------------------------------------------------------
@@ -88,12 +89,34 @@ else
 fi
 
 # -----------------------------------------------------------------------------
-# STEP 3: Apply Targeted Services
+# STEP 3: Synchronize Config & Apply Targeted Services
 # -----------------------------------------------------------------------------
 echo -e "\n${YELLOW}--- STEP 3: Deploying Services (victoriametrics & acash-staging) ---${NC}"
+# Sync prometheus.yml to production volume path if separate from git checkout
+PROD_PROM_CONF="/data/docker/prometheus/config/prometheus.yml"
+GIT_PROM_CONF="$INFRA_DIR/docker/prometheus/config/prometheus.yml"
+if [ -f "$GIT_PROM_CONF" ]; then
+    mkdir -p "$(dirname "$PROD_PROM_CONF")"
+    if [ ! -f "$PROD_PROM_CONF" ] || ! cmp -s "$GIT_PROM_CONF" "$PROD_PROM_CONF"; then
+        echo "Synchronizing prometheus.yml from git to ${PROD_PROM_CONF}..."
+        cp "$GIT_PROM_CONF" "$PROD_PROM_CONF"
+    fi
+fi
+
+PROD_COMPOSE="/data/docker/compose.yaml"
+GIT_COMPOSE="$INFRA_DIR/docker/compose.yaml"
+if [ -f "$GIT_COMPOSE" ] && [ -f "$PROD_COMPOSE" ]; then
+    if ! cmp -s "$GIT_COMPOSE" "$PROD_COMPOSE"; then
+        echo "Synchronizing compose.yaml from git to ${PROD_COMPOSE}..."
+        cp "$GIT_COMPOSE" "$PROD_COMPOSE"
+    fi
+fi
+
 cd "$INFRA_DIR/docker"
-docker compose up -d victoriametrics acash-staging
-sleep 3
+# Recreate victoriametrics to pick up new network attachment and fresh config
+docker compose up -d --force-recreate victoriametrics acash-staging
+echo "Waiting 5s for container initialization..."
+sleep 5
 
 # -----------------------------------------------------------------------------
 # STEP 4: Verify acash-staging Hardening & State
@@ -206,10 +229,10 @@ fi
 sleep 2
 METRICS_BODY_2=$(docker compose exec victoriametrics wget -qO- http://acash-staging:9102/metrics || true)
 UPTIME_2=$(echo "$METRICS_BODY_2" | grep -E '^acash_paper_uptime_seconds ' | awk '{print $2}' || true)
-if [ -n "$UPTIME_1" ] && [ -n "$UPTIME_2" ] && (( $(echo "$UPTIME_2 > $UPTIME_1" | bc -l 2>/dev/null || echo 1) )); then
+if [ -n "$UPTIME_1" ] && [ -n "$UPTIME_2" ] && awk -v t1="$UPTIME_1" -v t2="$UPTIME_2" 'BEGIN {exit !(t2 > t1)}'; then
     record_result "8.4" "Uptime metric dynamically increases" "PASS" "t1=${UPTIME_1}s, t2=${UPTIME_2}s"
 else
-    record_result "8.4" "Uptime metric dynamically increases" "PASS" "t1=${UPTIME_1}s, t2=${UPTIME_2}s"
+    record_result "8.4" "Uptime metric dynamically increases" "FAIL" "t1=${UPTIME_1}, t2=${UPTIME_2}"
 fi
 
 # -----------------------------------------------------------------------------
@@ -227,27 +250,76 @@ fi
 # STEP 10: VictoriaMetrics Scrape Target Health
 # -----------------------------------------------------------------------------
 echo -e "\n${YELLOW}--- STEP 10: VictoriaMetrics Scrape Target Health ---${NC}"
-TARGET_INFO=$(curl -s http://localhost:8428/api/v1/targets | jq -r '.data.targets[] | select(.labels.job=="acash-paper") | "\(.state)|\(.labels.job)|\(.lastScrape)|\(.lastError)"' || true)
-VM_STATE=$(echo "$TARGET_INFO" | cut -d'|' -f1)
-VM_JOB=$(echo "$TARGET_INFO" | cut -d'|' -f2)
-VM_LAST_SCRAPE=$(echo "$TARGET_INFO" | cut -d'|' -f3)
-VM_ERROR=$(echo "$TARGET_INFO" | cut -d'|' -f4)
+VM_STATE="unknown"
+VM_JOB="acash-paper"
+VM_SCRAPE_URL=""
+VM_LAST_SCRAPE=""
+VM_ERROR=""
+
+# Allow up to 30 seconds for VictoriaMetrics scrape loop (scrape_interval: 15s)
+for i in $(seq 1 15); do
+    TARGETS_JSON=$(curl -s http://localhost:8428/api/v1/targets 2>/dev/null || true)
+    TARGET_MATCH=$(echo "$TARGETS_JSON" | jq -r '.data.targets[] | select(.labels.job=="acash-paper")' 2>/dev/null || true)
+    if [ -n "$TARGET_MATCH" ]; then
+        VM_STATE=$(echo "$TARGET_MATCH" | jq -r '.state // "unknown"' 2>/dev/null || true)
+        VM_SCRAPE_URL=$(echo "$TARGET_MATCH" | jq -r '.scrapeUrl // ""' 2>/dev/null || true)
+        VM_LAST_SCRAPE=$(echo "$TARGET_MATCH" | jq -r '.lastScrape // ""' 2>/dev/null || true)
+        VM_ERROR=$(echo "$TARGET_MATCH" | jq -r '.lastError // ""' 2>/dev/null || true)
+        if [ "$VM_STATE" = "up" ]; then
+            break
+        fi
+    fi
+    echo "Waiting for VictoriaMetrics scrape cycle... (attempt ${i}/15, state: ${VM_STATE})"
+    sleep 2
+done
+
+echo "VictoriaMetrics Target Telemetry:"
+echo "  - job:         ${VM_JOB}"
+echo "  - scrapeUrl:   ${VM_SCRAPE_URL}"
+echo "  - state:       ${VM_STATE}"
+echo "  - lastScrape:  ${VM_LAST_SCRAPE}"
+echo "  - lastError:   ${VM_ERROR}"
 
 if [ "$VM_STATE" = "up" ]; then
     record_result "10.1" "VictoriaMetrics scrape target acash-paper is UP" "PASS" "state=${VM_STATE}, lastScrape=${VM_LAST_SCRAPE}"
 else
-    record_result "10.1" "VictoriaMetrics scrape target acash-paper is UP" "FAIL" "state=${VM_STATE}, lastError=${VM_ERROR}"
+    record_result "10.1" "VictoriaMetrics scrape target acash-paper is UP" "FAIL" "state=${VM_STATE}, error=${VM_ERROR}, url=${VM_SCRAPE_URL}"
 fi
 
 # -----------------------------------------------------------------------------
-# STEP 11: cAdvisor Metrics
+# STEP 11: cAdvisor Telemetry Presence
 # -----------------------------------------------------------------------------
 echo -e "\n${YELLOW}--- STEP 11: cAdvisor Telemetry Presence ---${NC}"
-CADVISOR_SAMPLE=$(curl -s http://localhost:8080/metrics | grep container_cpu_usage_seconds_total | grep acash-staging | head -n 1 || true)
+CADVISOR_STATE=$(docker inspect cadvisor --format '{{.State.Status}}' 2>/dev/null || true)
+CADVISOR_NETS=$(docker inspect cadvisor --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' 2>/dev/null || true)
+CADVISOR_SOCK=$(docker inspect cadvisor --format '{{range .Mounts}}{{if eq .Destination "/var/run/docker.sock"}}{{.Source}}{{end}}{{end}}' 2>/dev/null || true)
+
+echo "cAdvisor Host Inspection:"
+echo "  - status:      ${CADVISOR_STATE}"
+echo "  - networks:    ${CADVISOR_NETS}"
+echo "  - docker.sock: ${CADVISOR_SOCK}"
+
+# Query cAdvisor directly via internal network (cadvisor:8080 on homelab_internal)
+# Note: cAdvisor port 8080 is internal; host port 8080 is Traefik API/dashboard.
+CADVISOR_RAW=$(docker compose exec victoriametrics wget -qO- http://cadvisor:8080/metrics 2>/dev/null || true)
+CADVISOR_SAMPLE=$(echo "$CADVISOR_RAW" | grep 'container_cpu_usage_seconds_total' | grep -E 'name="acash-staging"|acash-staging' | head -n 1 || true)
+
+# Also check VictoriaMetrics PromQL engine for ingested cAdvisor series
+VM_CADVISOR_QUERY=$(curl -s 'http://localhost:8428/api/v1/query?query=container_cpu_usage_seconds_total%7Bname=%22acash-staging%22%7D' 2>/dev/null || true)
+VM_CADVISOR_SERIES=$(echo "$VM_CADVISOR_QUERY" | jq -r '.data.result[0].metric.name // empty' 2>/dev/null || true)
+
+echo "cAdvisor Metric Evidence:"
 if [ -n "$CADVISOR_SAMPLE" ]; then
-    record_result "11.1" "cAdvisor observes acash-staging container metrics" "PASS" "${CADVISOR_SAMPLE}"
+    echo "  - Direct /metrics: ${CADVISOR_SAMPLE}"
+fi
+if [ -n "$VM_CADVISOR_SERIES" ]; then
+    echo "  - Ingested VM series: name=${VM_CADVISOR_SERIES}"
+fi
+
+if [ -n "$CADVISOR_SAMPLE" ] || [ "$VM_CADVISOR_SERIES" = "acash-staging" ]; then
+    record_result "11.1" "cAdvisor observes acash-staging container metrics" "PASS" "${CADVISOR_SAMPLE:-Ingested in VictoriaMetrics: name=acash-staging}"
 else
-    record_result "11.1" "cAdvisor observes acash-staging container metrics" "FAIL" "No container series found"
+    record_result "11.1" "cAdvisor observes acash-staging container metrics" "FAIL" "No container series found from cadvisor:8080 or VM PromQL"
 fi
 
 # -----------------------------------------------------------------------------
@@ -288,7 +360,7 @@ echo -e "${BLUE}======================================================${NC}"
 
 if [ $FAILURES -eq 0 ]; then
     echo -e "${GREEN}>>> G10 = PASS / CLOSED <<<${NC}"
-    echo "All 14 criteria verified successfully on real host."
+    echo "All criteria verified successfully on real host."
     echo "Observability contract ratified. HARD STOP ENFORCED (G7/S11 NOT STARTED)."
     exit 0
 else
