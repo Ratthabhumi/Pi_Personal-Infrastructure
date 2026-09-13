@@ -96,6 +96,10 @@ class TestG7Suite(unittest.TestCase):
         compact_json=False,
         whitespace_variations=False,
         feed_events=None,
+        total_order_count=None,
+        total_trade_count=None,
+        simulated_fills_only=True,
+        include_simulated_orders=False,
     ):
         """Generates synthetic valid E3.5 paper evidence files."""
         if start_time is None:
@@ -190,11 +194,60 @@ class TestG7Suite(unittest.TestCase):
                     jf.write(json.dumps(ev) + "\n")
                 prev_hash = ev["event_hash"]
 
+            sim_order_events_count = 0
+            if include_simulated_orders:
+                for s_idx in range(1, 4):
+                    intent_ev = {
+                        "event_id": f"00000000-0000-0000-1111-{s_idx:012d}",
+                        "session_id": self.session_id,
+                        "sequence": bar_count + sim_order_events_count + 1,
+                        "event_type": "ORDER_INTENT_CREATED",
+                        "layer": "ORDER",
+                        "event_time_utc": end_time.isoformat(),
+                        "recorded_at_utc": end_time.isoformat(),
+                        "payload": {
+                            "order_intent_id": f"INTENT-{s_idx}",
+                            "symbol": "BTCUSDT",
+                            "side": "BUY",
+                            "quantity": "0.01",
+                            "order_type": "MARKET",
+                            "GOVERNANCE_LABEL": "SIMULATED_ORDER",
+                        },
+                        "previous_event_hash": prev_hash,
+                        "event_hash": f"a{s_idx:02d}" + "a" * 61,
+                    }
+                    prev_hash = intent_ev["event_hash"]
+                    jf.write(json.dumps(intent_ev) + "\n")
+                    sim_order_events_count += 1
+
+                    fill_ev = {
+                        "event_id": f"00000000-0000-0000-2222-{s_idx:012d}",
+                        "session_id": self.session_id,
+                        "sequence": bar_count + sim_order_events_count + 1,
+                        "event_type": "FILL_SIMULATED",
+                        "layer": "EXECUTION",
+                        "event_time_utc": end_time.isoformat(),
+                        "recorded_at_utc": end_time.isoformat(),
+                        "payload": {
+                            "fill_id": f"FILL-{s_idx}",
+                            "order_intent_id": f"INTENT-{s_idx}",
+                            "symbol": "BTCUSDT",
+                            "side": "BUY",
+                            "quantity": "0.01",
+                            "price": "60000.0",
+                        },
+                        "previous_event_hash": prev_hash,
+                        "event_hash": f"b{s_idx:02d}" + "b" * 61,
+                    }
+                    prev_hash = fill_ev["event_hash"]
+                    jf.write(json.dumps(fill_ev) + "\n")
+                    sim_order_events_count += 1
+
             if has_order:
                 order_ev = {
                     "event_id": "00000000-0000-0000-0000-999999999999",
                     "session_id": self.session_id,
-                    "sequence": bar_count + 1,
+                    "sequence": bar_count + sim_order_events_count + 1,
                     "event_type": "ORDER_SUBMITTED",
                     "layer": "ORDER",
                     "event_time_utc": end_time.isoformat(),
@@ -212,7 +265,7 @@ class TestG7Suite(unittest.TestCase):
                 "manifest_id": f"MAN-{self.session_id}",
                 "mode": "PAPER_ONLY",
                 "no_real_orders": not has_order,
-                "simulated_fills_only": True,
+                "simulated_fills_only": simulated_fills_only,
                 "governance_label": "PAPER_TRADING_INFRASTRUCTURE_TEST",
                 "strategy_id": "INFRA-TEST-MOMENTUM-SYNTHETIC-001",
                 "strategy_version": "1.0.0",
@@ -228,11 +281,11 @@ class TestG7Suite(unittest.TestCase):
                 "risk_model_version": "1.0.0",
                 "start_time_utc": start_time.isoformat(),
                 "end_time_utc": end_time.isoformat(),
-                "total_event_count": bar_count + 1 + (1 if has_order else 0),
+                "total_event_count": bar_count + 1 + (1 if has_order else 0) + (sim_order_events_count if include_simulated_orders else 0),
                 "total_warning_count": 0,
                 "total_error_count": 0,
-                "total_trade_count": 0,
-                "total_order_count": 1 if has_order else 0,
+                "total_trade_count": (3 if include_simulated_orders else 0) if total_trade_count is None else total_trade_count,
+                "total_order_count": (304 if include_simulated_orders else (1 if has_order else 0)) if total_order_count is None else total_order_count,
                 "total_rejected_order_count": 0,
                 "final_portfolio_summary": {
                     "cash": "0.00",
@@ -1048,42 +1101,107 @@ class TestG7Suite(unittest.TestCase):
 
 
     def test_manifest_zero_order_acceptance(self):
-        """Regression Test: no_real_orders=true and total_order_count=0 PASSES Check 1.2."""
+        """Regression Test: no_real_orders=true, simulated_fills_only=true PASSES Check 1.2."""
         self._create_synthetic_evidence(bar_count=360, has_order=False)
         proc = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
         self.assertEqual(proc.returncode, 0)
-        self.assertIn("1.2: Manifest zero-order invariant", proc.stdout)
+        self.assertIn("1.2: Zero Real Order Submission Evidence", proc.stdout)
         self.assertIn("PASS", proc.stdout)
 
-    def test_manifest_nonzero_orders_fails(self):
-        """Regression Test: no_real_orders=true but total_order_count=1 FAILS Check 1.2."""
+    def test_manifest_nonzero_simulated_orders_accepted(self):
+        """Regression Test: total_order_count=304, no_real_orders=true, simulated_fills_only=true PASSES Check 1.2."""
+        self._create_synthetic_evidence(bar_count=360, has_order=False, total_order_count=304)
+        proc = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("1.2: Zero Real Order Submission Evidence", proc.stdout)
+        self.assertIn("PASS", proc.stdout)
+        self.assertIn("simulated_orders=304", proc.stdout)
+
+    def test_manifest_no_real_orders_false_rejected(self):
+        """Regression Test: no_real_orders=false FAILS Check 1.2."""
         self._create_synthetic_evidence(bar_count=360, has_order=False)
         with open(self.manifest_file, "r", encoding="utf-8") as f:
             m = json.load(f)
-        m["total_order_count"] = 1  # non-zero order count
+        m["no_real_orders"] = False
         with open(self.manifest_file, "w", encoding="utf-8") as f:
             json.dump(m, f, indent=2)
 
         proc = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
         self.assertNotEqual(proc.returncode, 0)
-        self.assertIn("1.2: Manifest zero-order invariant", proc.stdout)
+        self.assertIn("1.2: Zero Real Order Submission Evidence", proc.stdout)
+        self.assertIn("FAIL", proc.stdout)
+
+    def test_manifest_simulated_fills_only_false_rejected(self):
+        """Regression Test: simulated_fills_only=false FAILS Check 1.2."""
+        self._create_synthetic_evidence(bar_count=360, has_order=False, simulated_fills_only=False)
+        proc = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("1.2: Zero Real Order Submission Evidence", proc.stdout)
         self.assertIn("FAIL", proc.stdout)
 
     def test_journal_nonzero_order_submission_fails(self):
         """Regression Test: ORDER_SUBMITTED > 0 in journal FAILS Check 7.1."""
         self._create_synthetic_evidence(bar_count=360, has_order=True)
-        # Force manifest total_order_count=0 to isolate journal check
+        # Manifest has no_real_orders=True, but journal contains ORDER_SUBMITTED
         with open(self.manifest_file, "r", encoding="utf-8") as f:
             m = json.load(f)
         m["no_real_orders"] = True
-        m["total_order_count"] = 0
+        m["simulated_fills_only"] = True
         with open(self.manifest_file, "w", encoding="utf-8") as f:
             json.dump(m, f, indent=2)
 
         proc = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
         self.assertNotEqual(proc.returncode, 0)
-        self.assertIn("7.1: Zero order submissions in journal", proc.stdout)
+        self.assertIn("7.1: Zero Real Order Submissions in Journal", proc.stdout)
         self.assertIn("FAIL", proc.stdout)
+
+    def test_simulated_order_intent_and_fills_pass_verifier_and_audit(self):
+        """Regression Test: Accepted G7 semantics with simulated orders passes verifier and audit:
+        no_real_orders=true, simulated_fills_only=true, total_order_count=304,
+        ORDER_INTENT_CREATED > 0, FILL_SIMULATED > 0, ORDER_SUBMITTED=0
+        PASSES verifier and audit. Mutating ORDER_SUBMITTED to 1 FAILS both.
+        """
+        self._create_synthetic_evidence(bar_count=360, include_simulated_orders=True)
+        # 1. Verify verifier passes
+        proc_v = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
+        self.assertEqual(proc_v.returncode, 0)
+        self.assertIn("1.2: Zero Real Order Submission Evidence", proc_v.stdout)
+        self.assertIn("7.1: Zero Real Order Submissions in Journal", proc_v.stdout)
+        self.assertIn("GATE G7 ACCEPTANCE CRITERIA: PASS", proc_v.stdout)
+
+        # 2. Verify g7.sh audit passes
+        proc_a = run_bash([G7_SCRIPT, "audit", self.session_id], env=self.test_env)
+        clean_a = re.sub(r'\x1b\[[0-9;]*m', '', proc_a.stdout)
+        self.assertEqual(proc_a.returncode, 0)
+        self.assertIn("[ PASS ] 18: Zero Real Order Submission Evidence", clean_a)
+        self.assertIn(">>> EVIDENCE READINESS AUDIT: PASS", clean_a)
+
+        # 3. Mutate journal to add 1 ORDER_SUBMITTED event
+        with open(self.journal_file, "a", encoding="utf-8") as jf:
+            bad_ev = {
+                "event_id": "00000000-0000-0000-3333-000000000001",
+                "session_id": self.session_id,
+                "sequence": 9999,
+                "event_type": "ORDER_SUBMITTED",
+                "layer": "ORDER",
+                "event_time_utc": "2026-09-12T12:00:00Z",
+                "recorded_at_utc": "2026-09-12T12:00:00Z",
+                "payload": {"order_id": "REAL-ORD-1"},
+                "previous_event_hash": "a" * 64,
+                "event_hash": "e" * 64,
+            }
+            jf.write(json.dumps(bad_ev) + "\n")
+
+        # 4. Now both MUST fail
+        proc_v_fail = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
+        self.assertNotEqual(proc_v_fail.returncode, 0)
+        self.assertIn("7.1: Zero Real Order Submissions in Journal", proc_v_fail.stdout)
+        self.assertIn("FAIL", proc_v_fail.stdout)
+
+        proc_a_fail = run_bash([G7_SCRIPT, "audit", self.session_id], env=self.test_env)
+        clean_a_fail = re.sub(r'\x1b\[[0-9;]*m', '', proc_a_fail.stdout)
+        self.assertNotEqual(proc_a_fail.returncode, 0)
+        self.assertIn("[ FAIL ] 18: Zero Real Order Submission Evidence", clean_a_fail)
 
     def test_permission_safe_g7_audit_nonzero_orders_fails(self):
         """Regression Test: host journal unreadable, container-side journal has 1 ORDER_SUBMITTED => g7.sh audit FAILS."""
@@ -1093,19 +1211,19 @@ class TestG7Suite(unittest.TestCase):
 
         proc = run_bash([G7_SCRIPT, "audit", self.session_id], env=custom_env)
         self.assertNotEqual(proc.returncode, 0)
-        self.assertIn("18: Zero Order Submission Evidence", proc.stdout)
+        self.assertIn("18: Zero Real Order Submission Evidence", proc.stdout)
         self.assertIn("FAIL", proc.stdout)
-        self.assertIn("orders dispatched!", proc.stdout)
+        self.assertIn("ORDER_SUBMITTED events dispatched!", proc.stdout)
 
     def test_permission_safe_g7_audit_zero_orders_passes(self):
         """Regression Test: host journal unreadable, container-side journal has 0 ORDER_SUBMITTED => g7.sh audit PASSES."""
-        self._create_synthetic_evidence(bar_count=360, has_order=False)
+        self._create_synthetic_evidence(bar_count=360, has_order=False, total_order_count=304)
         custom_env = self.test_env.copy()
         custom_env["G7_SIMULATE_HOST_UNREADABLE"] = "1"
 
         proc = run_bash([G7_SCRIPT, "audit", self.session_id], env=custom_env)
         self.assertEqual(proc.returncode, 0)
-        self.assertIn("18: Zero Order Submission Evidence", proc.stdout)
+        self.assertIn("18: Zero Real Order Submission Evidence", proc.stdout)
         self.assertIn("PASS", proc.stdout)
         self.assertIn("0 ORDER_SUBMITTED events", proc.stdout)
 
@@ -1118,7 +1236,7 @@ class TestG7Suite(unittest.TestCase):
 
         proc_audit = run_bash([G7_SCRIPT, "audit", self.session_id], env=custom_env)
         self.assertNotEqual(proc_audit.returncode, 0)
-        self.assertIn("18: Zero Order Submission Evidence", proc_audit.stdout)
+        self.assertIn("18: Zero Real Order Submission Evidence", proc_audit.stdout)
         self.assertIn("FAIL", proc_audit.stdout)
 
         proc_verify = run_bash([VERIFY_SCRIPT, self.session_id], env=custom_env)

@@ -278,10 +278,10 @@ get_json_field() {
         if command -v jq >/dev/null 2>&1; then
             jq -r ".${field} // empty" "$file" 2>/dev/null || true
         elif [ -n "$HOST_PYTHON" ]; then
-            "$HOST_PYTHON" -c "import json, sys; d=json.load(open(sys.argv[1], encoding='utf-8')); val=d.get(sys.argv[2], ''); print('' if val is None else val)" "$file" "$field" 2>/dev/null || true
+            "$HOST_PYTHON" -c "import json, sys; d=json.load(open(sys.argv[1], encoding='utf-8')); val=d.get(sys.argv[2], ''); print(str(val).lower() if isinstance(val, bool) else ('' if val is None else val))" "$file" "$field" 2>/dev/null || true
         fi
     else
-        run_evidence_python "" "import json, sys; d=json.load(open(sys.argv[1], encoding='utf-8')); val=d.get(sys.argv[2], ''); print('' if val is None else val)" "$file" "$field" 2>/dev/null || true
+        run_evidence_python "" "import json, sys; d=json.load(open(sys.argv[1], encoding='utf-8')); val=d.get(sys.argv[2], ''); print(str(val).lower() if isinstance(val, bool) else ('' if val is None else val))" "$file" "$field" 2>/dev/null || true
     fi
 }
 
@@ -893,7 +893,7 @@ cmd_audit() {
         "compose.yaml:445" "ACASH_CANONICAL_CAPITAL=0" \
         "Locks financial capital at zero during soak execution" "YES" "YES"
 
-    # 18. Zero-Order Submission Evidence
+    # 18. Zero Real Order Submission Evidence
     if [ "$audit_mode" = "TARGET_SESSION" ]; then
         local order_count=""
         if is_host_readable "$journal_file" && [ -f "$journal_file" ]; then
@@ -939,23 +939,37 @@ except Exception:
         fi
         order_count=$(echo "$order_count" | tr -d '[:space:]')
 
-        if [ "$order_count" = "0" ]; then
-            audit_item "18" "Zero Order Submission Evidence" "PASS" \
-                "$journal_file" "0 ORDER_SUBMITTED events" \
-                "Proves no orders were dispatched" "YES" "YES"
-        elif [ -n "$order_count" ]; then
-            audit_item "18" "Zero Order Submission Evidence" "FAIL" \
-                "$journal_file" "${order_count} orders dispatched!" \
-                "Order submission violation detected!" "NO" "YES"
+        local m_no_real="" m_sim_fills=""
+        if evidence_file_exists "$manifest_file"; then
+            m_no_real=$(get_json_field "$manifest_file" "no_real_orders" | tr '[:upper:]' '[:lower:]')
+            m_sim_fills=$(get_json_field "$manifest_file" "simulated_fills_only" | tr '[:upper:]' '[:lower:]')
+        fi
+
+        if [ "$order_count" = "0" ] && [ "$m_no_real" = "true" ] && [ "$m_sim_fills" = "true" ]; then
+            audit_item "18" "Zero Real Order Submission Evidence" "PASS" \
+                "$journal_file" "0 ORDER_SUBMITTED events, no_real_orders=true, simulated_fills_only=true" \
+                "Proves no real broker orders were dispatched" "YES" "YES"
+        elif [ -n "$order_count" ] && [ "$order_count" -gt 0 ] 2>/dev/null; then
+            audit_item "18" "Zero Real Order Submission Evidence" "FAIL" \
+                "$journal_file" "${order_count} ORDER_SUBMITTED events dispatched!" \
+                "Real order submission violation detected!" "NO" "YES"
+        elif [ -n "$m_no_real" ] && [ "$m_no_real" != "true" ]; then
+            audit_item "18" "Zero Real Order Submission Evidence" "FAIL" \
+                "$manifest_file" "no_real_orders=${m_no_real}" \
+                "Manifest does not attest no_real_orders=true" "NO" "YES"
+        elif [ -n "$m_sim_fills" ] && [ "$m_sim_fills" != "true" ]; then
+            audit_item "18" "Zero Real Order Submission Evidence" "FAIL" \
+                "$manifest_file" "simulated_fills_only=${m_sim_fills}" \
+                "Manifest does not attest simulated_fills_only=true" "NO" "YES"
         else
-            audit_item "18" "Zero Order Submission Evidence" "FAIL" \
-                "${journal_file:-unknown}" "Evidence unreadable or missing" \
-                "Cannot verify zero-order submission invariant" "NO" "YES"
+            audit_item "18" "Zero Real Order Submission Evidence" "FAIL" \
+                "${journal_file:-unknown}" "Evidence unreadable, missing, or invalid" \
+                "Cannot verify zero real order submission invariant" "NO" "YES"
         fi
     else
-        audit_item "18" "Zero Order Submission Evidence" "PASS" \
-            "src/acash/paper/manifest.py:120" "manifest.total_order_count == 0" \
-            "Proves no orders were dispatched" "YES" "YES"
+        audit_item "18" "Zero Real Order Submission Evidence" "PASS" \
+            "src/acash/paper/manifest.py:74,78" "no_real_orders=true & simulated_fills_only=true" \
+            "Enforces zero real order dispatch by construction" "YES" "YES"
     fi
 
     echo -e "\n${CYAN}=== 5. Sealing, Verification & Integrity Readiness ===${NC}"

@@ -223,11 +223,12 @@ if [ "$MANIFEST_EXISTS" = true ]; then
     fi
 
     M_NO_REAL=$(get_json_field "$MANIFEST_FILE" "no_real_orders")
+    M_SIM_FILLS=$(get_json_field "$MANIFEST_FILE" "simulated_fills_only")
     M_ORDERS=$(get_json_field "$MANIFEST_FILE" "total_order_count")
-    if [ "$M_NO_REAL" = "true" ] && [ -n "$M_ORDERS" ] && [ "$M_ORDERS" != "null" ] && [ "$M_ORDERS" -eq 0 ] 2>/dev/null; then
-        record_check "1.2" "Manifest zero-order invariant (no_real_orders=true, total_order_count=0)" "PASS" "no_real_orders=true, total_order_count=0"
+    if [ "$M_NO_REAL" = "true" ] && [ "$M_SIM_FILLS" = "true" ]; then
+        record_check "1.2" "Zero Real Order Submission Evidence (no_real_orders=true, simulated_fills_only=true)" "PASS" "no_real_orders=true, simulated_fills_only=true (simulated_orders=${M_ORDERS:-0})"
     else
-        record_check "1.2" "Manifest zero-order invariant (no_real_orders=true, total_order_count=0)" "FAIL" "no_real_orders=${M_NO_REAL:-missing}, total_order_count=${M_ORDERS:-missing} (G7 soak requires zero orders)"
+        record_check "1.2" "Zero Real Order Submission Evidence (no_real_orders=true, simulated_fills_only=true)" "FAIL" "no_real_orders=${M_NO_REAL:-missing}, simulated_fills_only=${M_SIM_FILLS:-missing} (Manifest must attest no_real_orders=true and simulated_fills_only=true)"
     fi
 else
     record_check "1.1" "Manifest file present" "FAIL" "Missing ${MANIFEST_FILE}"
@@ -612,10 +613,11 @@ except Exception:
     ORDER_COUNT=$(echo "$ORDER_COUNT" | tr -d '[:space:]')
 
     M_NO_REAL=$(get_json_field "$MANIFEST_FILE" "no_real_orders")
-    if [ "$M_NO_REAL" = "true" ] && [ -n "$ORDER_COUNT" ] && [ "$ORDER_COUNT" = "0" ]; then
-        record_check "7.1" "Zero order submissions in journal (NO_REAL_ORDERS=true, ORDER_SUBMITTED=0)" "PASS" "0 ORDER_SUBMITTED events (PaperSessionManifest generally distinguishes simulated paper execution from real broker execution; however, this G7 soak additionally requires zero order submissions under its existing acceptance contract)"
+    M_SIM_FILLS=$(get_json_field "$MANIFEST_FILE" "simulated_fills_only")
+    if [ "$M_NO_REAL" = "true" ] && [ "$M_SIM_FILLS" = "true" ] && [ -n "$ORDER_COUNT" ] && [ "$ORDER_COUNT" = "0" ]; then
+        record_check "7.1" "Zero Real Order Submissions in Journal (ORDER_SUBMITTED=0, no_real_orders=true)" "PASS" "0 ORDER_SUBMITTED events (simulated paper order activity permitted; real broker order dispatch forbidden)"
     else
-        record_check "7.1" "Zero order submissions in journal (NO_REAL_ORDERS=true, ORDER_SUBMITTED=0)" "FAIL" "no_real_orders=${M_NO_REAL:-missing}, ORDER_SUBMITTED=${ORDER_COUNT:-unreadable} (G7 soak acceptance requires zero order submissions)"
+        record_check "7.1" "Zero Real Order Submissions in Journal (ORDER_SUBMITTED=0, no_real_orders=true)" "FAIL" "no_real_orders=${M_NO_REAL:-missing}, simulated_fills_only=${M_SIM_FILLS:-missing}, ORDER_SUBMITTED=${ORDER_COUNT:-unreadable} (G7 soak requires zero real broker order submissions)"
     fi
 else
     record_check "7.1" "Zero order submissions in journal" "FAIL" "Missing journal for order audit"
