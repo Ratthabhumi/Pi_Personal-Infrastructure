@@ -117,6 +117,24 @@ run_evidence_python() {
         -c "$py_code" "$@"
 }
 
+evidence_file_exists() {
+    local file="$1"
+    if [ -z "$file" ]; then return 1; fi
+    if is_host_readable "$file" && [ -f "$file" ]; then
+        return 0
+    fi
+    run_evidence_python "" "import os, sys; sys.exit(0 if os.path.isfile(sys.argv[1]) else 1)" "$file" 2>/dev/null
+}
+
+evidence_file_nonempty() {
+    local file="$1"
+    if [ -z "$file" ]; then return 1; fi
+    if is_host_readable "$file" && [ -f "$file" ] && [ -s "$file" ]; then
+        return 0
+    fi
+    run_evidence_python "" "import os, sys; p=sys.argv[1]; sys.exit(0 if os.path.isfile(p) and os.path.getsize(p) > 0 else 1)" "$file" 2>/dev/null
+}
+
 resolve_active_session() {
     local container_name="${1:-acash-staging}"
     local sessions_dir="${2:-${SESSIONS_DIR}}"
@@ -602,16 +620,17 @@ cmd_audit() {
     local target_session="${1:-}"
     print_banner "25-POINT EVIDENCE-READINESS & LIFECYCLE AUDIT"
 
+    local audit_mode="PRE_SOAK_READINESS"
     local is_sealed=false
     local is_running=false
     local journal_file="" manifest_file="" snapshot_file=""
 
     # 1. Determine session context
     if [ -n "$target_session" ]; then
+        audit_mode="TARGET_SESSION"
         journal_file="${SESSIONS_DIR}/${target_session}.journal.jsonl"
         manifest_file="${SESSIONS_DIR}/${target_session}.manifest.json"
         snapshot_file="${SESSIONS_DIR}/${target_session}.snapshots.jsonl"
-        if [ -f "$manifest_file" ]; then is_sealed=true; fi
         echo "Audit Target Mode: SPECIFIED SESSION (${target_session})"
     else
         # Check running container first
@@ -622,6 +641,7 @@ cmd_audit() {
             active_sid=$(docker logs "$running_cid" 2>&1 | grep -o 'E3\.5-[0-9]\{8\}-[0-9]\{6\}-[a-f0-9]\{6\}' | head -n 1 || true)
             if [ -n "$active_sid" ]; then
                 target_session="$active_sid"
+                audit_mode="TARGET_SESSION"
                 journal_file="${SESSIONS_DIR}/${target_session}.journal.jsonl"
                 manifest_file="${SESSIONS_DIR}/${target_session}.manifest.json"
                 snapshot_file="${SESSIONS_DIR}/${target_session}.snapshots.jsonl"
@@ -640,13 +660,26 @@ cmd_audit() {
             fi
             if [ -n "$newest_manifest" ]; then
                 target_session=$(basename "$newest_manifest" | sed 's/\.manifest\.json//')
+                audit_mode="TARGET_SESSION"
                 journal_file="${SESSIONS_DIR}/${target_session}.journal.jsonl"
                 manifest_file="${SESSIONS_DIR}/${target_session}.manifest.json"
                 snapshot_file="${SESSIONS_DIR}/${target_session}.snapshots.jsonl"
-                is_sealed=true
                 echo "Audit Target Mode: NEWEST SEALED SESSION (${target_session})"
             else
+                audit_mode="PRE_SOAK_READINESS"
                 echo "Audit Target Mode: PRE-SOAK EVIDENCE-READINESS MODE (Code, Schema & System Audit)"
+            fi
+        fi
+    fi
+
+    if [ "$audit_mode" = "TARGET_SESSION" ]; then
+        if evidence_file_exists "$manifest_file"; then
+            local s_at m_h j_h
+            s_at=$(get_json_field "$manifest_file" "sealed_at_utc")
+            m_h=$(get_json_field "$manifest_file" "manifest_hash")
+            j_h=$(get_json_field "$manifest_file" "journal_final_hash")
+            if [ -n "$s_at" ] && [ "$s_at" != "null" ] &&                [ -n "$m_h" ] && [ "$m_h" != "null" ] &&                [ -n "$j_h" ] && [ "$j_h" != "null" ]; then
+                is_sealed=true
             fi
         fi
     fi
@@ -706,10 +739,16 @@ cmd_audit() {
     fi
 
     # 3. Journal File Path
-    if [ -n "$target_session" ] && ( ( is_host_readable "$journal_file" && [ -f "$journal_file" ] ) || run_evidence_python "" "import os, sys; sys.exit(0 if os.path.isfile(sys.argv[1]) else 1)" "$journal_file" 2>/dev/null ); then
-        audit_item "03" "Journal File Path" "PASS" \
-            "runtime filesystem" "${journal_file}" \
-            "Primary immutable append-only event source of truth" "YES" "YES"
+    if [ "$audit_mode" = "TARGET_SESSION" ]; then
+        if evidence_file_exists "$journal_file"; then
+            audit_item "03" "Journal File Path" "PASS" \
+                "runtime filesystem" "${journal_file}" \
+                "Primary immutable append-only event source of truth" "YES" "YES"
+        else
+            audit_item "03" "Journal File Path" "FAIL" \
+                "${journal_file:-missing}" "Journal file missing or unreadable" \
+                "Session journal required for forensic audit" "NO" "YES"
+        fi
     else
         audit_item "03" "Journal File Path" "PASS" \
             "src/acash/paper/cli.py:89" "<storage>/<session_id>.journal.jsonl" \
@@ -717,10 +756,16 @@ cmd_audit() {
     fi
 
     # 4. Manifest File Path
-    if [ -n "$target_session" ] && ( ( is_host_readable "$manifest_file" && [ -f "$manifest_file" ] ) || run_evidence_python "" "import os, sys; sys.exit(0 if os.path.isfile(sys.argv[1]) else 1)" "$manifest_file" 2>/dev/null ); then
-        audit_item "04" "Manifest File Path" "PASS" \
-            "runtime filesystem" "${manifest_file}" \
-            "Sealed session cryptographic summary and governance attestation" "YES" "YES"
+    if [ "$audit_mode" = "TARGET_SESSION" ]; then
+        if evidence_file_exists "$manifest_file"; then
+            audit_item "04" "Manifest File Path" "PASS" \
+                "runtime filesystem" "${manifest_file}" \
+                "Sealed session cryptographic summary and governance attestation" "YES" "YES"
+        else
+            audit_item "04" "Manifest File Path" "FAIL" \
+                "${manifest_file:-missing}" "Manifest file missing or unreadable" \
+                "Session manifest required for forensic audit" "NO" "YES"
+        fi
     else
         audit_item "04" "Manifest File Path" "PASS" \
             "src/acash/paper/cli.py:331" "<storage>/<session_id>.manifest.json" \
@@ -728,14 +773,16 @@ cmd_audit() {
     fi
 
     # 5. Snapshot File Path
-    if [ -n "$target_session" ] && ( ( is_host_readable "$snapshot_file" && [ -f "$snapshot_file" ] && [ -s "$snapshot_file" ] ) || run_evidence_python "" "import os, sys; p=sys.argv[1]; sys.exit(0 if os.path.isfile(p) and os.path.getsize(p) > 0 else 1)" "$snapshot_file" 2>/dev/null ); then
-        audit_item "05" "Snapshot File Path" "PASS" \
-            "runtime filesystem" "${snapshot_file}" \
-            "Mandatory daily summary required for build_review_package()" "YES" "YES"
-    elif [ -n "$target_session" ] && [ "$is_sealed" = true ]; then
-        audit_item "05" "Snapshot File Path" "FAIL" \
-            "runtime filesystem" "${snapshot_file}" \
-            "Missing or empty snapshot file in sealed session" "YES" "YES"
+    if [ "$audit_mode" = "TARGET_SESSION" ]; then
+        if evidence_file_nonempty "$snapshot_file"; then
+            audit_item "05" "Snapshot File Path" "PASS" \
+                "runtime filesystem" "${snapshot_file}" \
+                "Mandatory daily summary required for build_review_package()" "YES" "YES"
+        else
+            audit_item "05" "Snapshot File Path" "FAIL" \
+                "${snapshot_file:-missing}" "Snapshot file missing, empty, or unreadable" \
+                "Mandatory daily summary required for build_review_package()" "NO" "YES"
+        fi
     else
         audit_item "05" "Snapshot File Path" "PASS" \
             "src/acash/paper/cli.py:90, runner.py:316" "<storage>/<session_id>.snapshots.jsonl" \
@@ -847,7 +894,7 @@ cmd_audit() {
         "Locks financial capital at zero during soak execution" "YES" "YES"
 
     # 18. Zero-Order Submission Evidence
-    if [ -n "$target_session" ]; then
+    if [ "$audit_mode" = "TARGET_SESSION" ]; then
         local order_count=""
         if is_host_readable "$journal_file" && [ -f "$journal_file" ]; then
             if [ -n "$HOST_PYTHON" ]; then
@@ -929,7 +976,7 @@ except Exception:
         "Produces standardized 22-item E3.5 operational audit review package" "YES" "YES"
 
     # 22. Continuous Duration Evidence (>= 6.00h)
-    if [ "$is_sealed" = true ]; then
+    if [ "$audit_mode" = "TARGET_SESSION" ]; then
         local dur_t=""
         local start_t end_t
         start_t=$(get_json_field "$manifest_file" "start_time_utc")
@@ -977,18 +1024,32 @@ except Exception:
     fi
 
     # 23. Market-Bar Timestamp Quality & Duplicate Protection
-    if [ -f "$journal_file" ]; then
-        local dups
-        dups=$(get_journal_timestamps "$journal_file" | sort | uniq -d | wc -l)
-        dups=$(echo "$dups" | tr -d '[:space:]')
-        if [ "$dups" = "0" ]; then
-            audit_item "23" "Duplicate Bar Detection & Freshness" "PASS" \
-                "$journal_file" "0 duplicate timestamps" \
-                "Detects stale feeds or replay anomalies" "YES" "YES"
+    if [ "$audit_mode" = "TARGET_SESSION" ]; then
+        if evidence_file_exists "$journal_file"; then
+            local ts_list
+            ts_list=$(get_journal_timestamps "$journal_file")
+            if [ -n "$ts_list" ]; then
+                local dups
+                dups=$(echo "$ts_list" | sort | uniq -d | wc -l)
+                dups=$(echo "$dups" | tr -d '[:space:]')
+                if [ "$dups" = "0" ]; then
+                    audit_item "23" "Duplicate Bar Detection & Freshness" "PASS" \
+                        "$journal_file" "0 duplicate timestamps" \
+                        "Detects stale feeds or replay anomalies" "YES" "YES"
+                else
+                    audit_item "23" "Duplicate Bar Detection & Freshness" "FAIL" \
+                        "$journal_file" "${dups} duplicate timestamps found" \
+                        "Duplicate timestamps invalidate feed continuousness" "NO" "YES"
+                fi
+            else
+                audit_item "23" "Duplicate Bar Detection & Freshness" "FAIL" \
+                    "$journal_file" "0 market bars found or timestamps unreadable" \
+                    "Cannot audit market bar timestamps" "NO" "YES"
+            fi
         else
             audit_item "23" "Duplicate Bar Detection & Freshness" "FAIL" \
-                "$journal_file" "${dups} duplicate timestamps found" \
-                "Duplicate timestamps invalidate feed continuousness" "NO" "YES"
+                "${journal_file:-missing}" "Journal file missing or unreadable" \
+                "Cannot audit market bar timestamps" "NO" "YES"
         fi
     else
         audit_item "23" "Duplicate Bar Detection & Freshness" "PASS" \

@@ -1264,6 +1264,100 @@ class TestG7Suite(unittest.TestCase):
         self.assertNotIn("sealed: true, manifest_hash, journal_final_hash", content)
         self.assertIn("sealed_at_utc + manifest_hash + journal_final_hash", content)
 
+    def test_target_session_host_unreadable_container_readable_all_pass(self):
+        """Regression A: Specified session + host unreadable + container readable + valid evidence passes items 03, 04, 05, 22, 23."""
+        self._create_synthetic_evidence(bar_count=360, has_order=False)
+        custom_env = self.test_env.copy()
+        custom_env["G7_SIMULATE_HOST_UNREADABLE"] = "1"
+        proc = run_bash([G7_SCRIPT, "audit", self.session_id], env=custom_env)
+        clean_out = re.sub(r'\x1b\[[0-9;]*m', '', proc.stdout)
+        self.assertIn("[ PASS ] 03: Journal File Path", clean_out)
+        self.assertIn("[ PASS ] 04: Manifest File Path", clean_out)
+        self.assertIn("[ PASS ] 05: Snapshot File Path", clean_out)
+        self.assertIn("[ PASS ] 22: Continuous Duration Evidence", clean_out)
+        self.assertIn("[ PASS ] 23: Duplicate Bar Detection & Freshness", clean_out)
+        self.assertIn(">>> EVIDENCE READINESS AUDIT: PASS", clean_out)
+
+    def test_target_session_host_unreadable_missing_manifest_fails(self):
+        """Regression B: Specified session + host unreadable + missing manifest fails Item 04 and overall audit."""
+        self._create_synthetic_evidence(bar_count=360, omit_manifest=True)
+        custom_env = self.test_env.copy()
+        custom_env["G7_SIMULATE_HOST_UNREADABLE"] = "1"
+        proc = run_bash([G7_SCRIPT, "audit", self.session_id], env=custom_env)
+        clean_out = re.sub(r'\x1b\[[0-9;]*m', '', proc.stdout)
+        self.assertIn("[ FAIL ] 04: Manifest File Path", clean_out)
+        self.assertIn(">>> EVIDENCE READINESS AUDIT: FAIL", clean_out)
+
+    def test_target_session_host_unreadable_missing_snapshot_fails(self):
+        """Regression C: Specified session + host unreadable + missing snapshot fails Item 05."""
+        self._create_synthetic_evidence(bar_count=360, omit_snapshot=True)
+        custom_env = self.test_env.copy()
+        custom_env["G7_SIMULATE_HOST_UNREADABLE"] = "1"
+        proc = run_bash([G7_SCRIPT, "audit", self.session_id], env=custom_env)
+        clean_out = re.sub(r'\x1b\[[0-9;]*m', '', proc.stdout)
+        self.assertIn("[ FAIL ] 05: Snapshot File Path", clean_out)
+        self.assertIn(">>> EVIDENCE READINESS AUDIT: FAIL", clean_out)
+
+    def test_target_session_host_unreadable_malformed_timestamps_fails_duration(self):
+        """Regression D: Specified session + host unreadable + malformed/missing timestamps fails Item 22."""
+        self._create_synthetic_evidence(bar_count=360, has_order=False)
+        with open(self.manifest_file, "r", encoding="utf-8") as f:
+            m = json.load(f)
+        m["start_time_utc"] = "not_an_iso_timestamp"
+        m["end_time_utc"] = "neither_is_this"
+        with open(self.manifest_file, "w", encoding="utf-8") as f:
+            json.dump(m, f, indent=2)
+
+        custom_env = self.test_env.copy()
+        custom_env["G7_SIMULATE_HOST_UNREADABLE"] = "1"
+        proc = run_bash([G7_SCRIPT, "audit", self.session_id], env=custom_env)
+        clean_out = re.sub(r'\x1b\[[0-9;]*m', '', proc.stdout)
+        self.assertIn("[ FAIL ] 22: Continuous Duration Evidence", clean_out)
+
+    def test_target_session_host_unreadable_duplicate_timestamps_fails_freshness(self):
+        """Regression E: Specified session + host unreadable + duplicate MARKET_BAR_RECEIVED timestamp fails Item 23."""
+        self._create_synthetic_evidence(bar_count=50, has_duplicate=True, timestamp_key="timestamp_utc")
+        custom_env = self.test_env.copy()
+        custom_env["G7_SIMULATE_HOST_UNREADABLE"] = "1"
+        proc = run_bash([G7_SCRIPT, "audit", self.session_id], env=custom_env)
+        clean_out = re.sub(r'\x1b\[[0-9;]*m', '', proc.stdout)
+        self.assertIn("[ FAIL ] 23: Duplicate Bar Detection & Freshness", clean_out)
+        self.assertIn("duplicate timestamps found", clean_out)
+
+    def test_target_session_host_unreadable_container_unreadable_fails_closed(self):
+        """Regression F: Specified session + host unreadable + container unreadable fails closed (NEVER readiness PASS)."""
+        self._create_synthetic_evidence(bar_count=360, has_order=False)
+        custom_env = self.test_env.copy()
+        custom_env["G7_SIMULATE_HOST_UNREADABLE"] = "1"
+        custom_env["G7_TEST_CONTAINER_UNREADABLE"] = "1"
+        proc = run_bash([G7_SCRIPT, "audit", self.session_id], env=custom_env)
+        clean_out = re.sub(r'\x1b\[[0-9;]*m', '', proc.stdout)
+        self.assertIn("[ FAIL ] 03: Journal File Path", clean_out)
+        self.assertIn("[ FAIL ] 04: Manifest File Path", clean_out)
+        self.assertIn("[ FAIL ] 05: Snapshot File Path", clean_out)
+        self.assertIn("[ FAIL ] 22: Continuous Duration Evidence", clean_out)
+        self.assertIn("[ FAIL ] 23: Duplicate Bar Detection & Freshness", clean_out)
+        self.assertIn(">>> EVIDENCE READINESS AUDIT: FAIL", clean_out)
+        self.assertNotIn(">>> EVIDENCE READINESS AUDIT: PASS", clean_out)
+
+    def test_pre_soak_mode_without_session_preserves_readiness(self):
+        """Regression G: No target session + no evidence preserves PRE-SOAK readiness behavior."""
+        custom_env = self.test_env.copy()
+        proc = run_bash([G7_SCRIPT, "audit"], env=custom_env)
+        clean_out = re.sub(r'\x1b\[[0-9;]*m', '', proc.stdout)
+        self.assertIn("PRE-SOAK EVIDENCE-READINESS MODE", clean_out)
+        self.assertIn("[ PASS ] 03: Journal File Path", clean_out)
+        self.assertIn("<storage>/<session_id>.journal.jsonl", clean_out)
+        self.assertIn("[ PASS ] 04: Manifest File Path", clean_out)
+        self.assertIn("<storage>/<session_id>.manifest.json", clean_out)
+        self.assertIn("[ PASS ] 05: Snapshot File Path", clean_out)
+        self.assertIn("<storage>/<session_id>.snapshots.jsonl", clean_out)
+        self.assertIn("[ PASS ] 22: Continuous Duration Evidence", clean_out)
+        self.assertIn("manifest.start_time_utc / end_time_utc", clean_out)
+        self.assertIn("[ PASS ] 23: Duplicate Bar Detection & Freshness", clean_out)
+        self.assertIn("runner._seen_feed_source_ids", clean_out)
+        self.assertIn(">>> EVIDENCE READINESS AUDIT: PASS", clean_out)
+
 if __name__ == "__main__":
     unittest.main()
 
