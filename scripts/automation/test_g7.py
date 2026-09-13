@@ -527,6 +527,85 @@ class TestG7Suite(unittest.TestCase):
         self.assertIn("4.3: Feed connection stability", proc.stdout)
 
 
+    def test_g7_evidence_continuous_healthy_session_passes(self):
+        """Case A: Uninterrupted run with 0 disconnects and valid evidence achieves G7 PASS and S11 CLOSED."""
+        self._create_synthetic_evidence(bar_count=360)
+        proc = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
+        self.assertEqual(proc.returncode, 0, f"Uninterrupted session must exit 0! Output:\n{proc.stdout}\n{proc.stderr}")
+        self.assertIn("RUN CLASS           = CONTINUOUS", proc.stdout)
+        self.assertIn("CONTINUITY ELIGIBLE = YES", proc.stdout)
+        self.assertIn("G7                  = PASS / VERIFIED", proc.stdout)
+        self.assertIn("STAGE S11           = CLOSED", proc.stdout)
+        self.assertIn("GATE G7 ACCEPTANCE CRITERIA: PASS", proc.stdout)
+
+    def test_g7_evidence_terminal_disconnect_fails_acceptance(self):
+        """Case B: Terminal disconnect fails Check 4.3, exits non-zero, and does not achieve G7 PASS or S11 CLOSED."""
+        now = datetime.now(timezone.utc)
+        feed_evs = [
+            ("FEED_CONNECTED", now - timedelta(hours=5), {"provider": "binance_public_klines"}),
+            ("FEED_DISCONNECTED", now - timedelta(minutes=30), {"error_class": "ReadTimeout", "category": "TIMEOUT"}),
+        ]
+        self._create_synthetic_evidence(bar_count=360, feed_events=feed_evs)
+        proc = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
+        self.assertNotEqual(proc.returncode, 0, "Terminal disconnect must not exit 0!")
+        self.assertIn("RUN CLASS           = INTERRUPTED", proc.stdout)
+        self.assertIn("CONTINUITY ELIGIBLE = NO", proc.stdout)
+        self.assertIn("Terminal disconnect: ReadTimeout [TIMEOUT]", proc.stdout)
+        self.assertNotIn("G7                  = PASS / VERIFIED", proc.stdout)
+        self.assertNotIn("STAGE S11           = CLOSED", proc.stdout)
+        self.assertIn("G7                  = FAIL", proc.stdout)
+
+    def test_g7_evidence_operator_recovered_not_eligible_for_g7_pass(self):
+        """Case C: Operator-recovered session recognizes technical recovery but is NOT eligible for continuous G7 PASS."""
+        now = datetime.now(timezone.utc)
+        feed_evs = [
+            ("FEED_CONNECTED", now - timedelta(hours=5), {"provider": "binance_public_klines"}),
+            ("FEED_DISCONNECTED", now - timedelta(hours=3), {"error_class": "ReadTimeout", "category": "TIMEOUT"}),
+            ("RECOVERY_ATTEMPTED", now - timedelta(hours=2, minutes=59, seconds=55), {"attempt_number": 1}),
+            ("FEED_CONNECTED", now - timedelta(hours=2, minutes=59, seconds=50), {"is_recovery": True, "resume_count": 1}),
+        ]
+        self._create_synthetic_evidence(bar_count=360, feed_events=feed_evs)
+        proc = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
+        self.assertNotEqual(proc.returncode, 0, "Operator-recovered run must exit non-zero for continuous G7!")
+        self.assertIn("RUN CLASS           = OPERATOR-RECOVERED", proc.stdout)
+        self.assertIn("CONTINUITY ELIGIBLE = NO", proc.stdout)
+        self.assertIn("RECOVERY MECHANISM  = PASS / VERIFIED", proc.stdout)
+        self.assertIn("CANONICAL G7 SOAK   = NOT ELIGIBLE", proc.stdout)
+        self.assertIn("G7                  = NOT ELIGIBLE", proc.stdout)
+        self.assertIn("STAGE S11           = OPEN", proc.stdout)
+        self.assertNotIn("G7                  = PASS / VERIFIED", proc.stdout)
+        self.assertNotIn("STAGE S11           = CLOSED", proc.stdout)
+
+    def test_g7_evidence_recovery_semantics_distinguished_from_terminal_failure(self):
+        """Case D: Distinguish technical recovery success from an unrecovered terminal failure."""
+        now = datetime.now(timezone.utc)
+        # 1. Recovered run
+        feed_evs_rec = [
+            ("FEED_CONNECTED", now - timedelta(hours=5), {"provider": "binance_public_klines"}),
+            ("FEED_DISCONNECTED", now - timedelta(hours=3), {"error_class": "ReadTimeout", "category": "TIMEOUT"}),
+            ("RECOVERY_ATTEMPTED", now - timedelta(hours=2, minutes=59, seconds=55), {"attempt_number": 1}),
+            ("FEED_CONNECTED", now - timedelta(hours=2, minutes=59, seconds=50), {"is_recovery": True, "resume_count": 1}),
+        ]
+        self._create_synthetic_evidence(bar_count=360, feed_events=feed_evs_rec)
+        proc_rec = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
+        self.assertIn("4.3: Feed connection stability & recovery", proc_rec.stdout)
+        self.assertIn("Technical recovery: PASS", proc_rec.stdout)
+        self.assertIn("Technical recovery: PASS", proc_rec.stdout)
+        self.assertIn("GATE G7 ACCEPTANCE CRITERIA: NOT ELIGIBLE", proc_rec.stdout)
+
+        # 2. Terminal disconnect
+        feed_evs_term = [
+            ("FEED_CONNECTED", now - timedelta(hours=5), {"provider": "binance_public_klines"}),
+            ("FEED_DISCONNECTED", now - timedelta(hours=3), {"error_class": "ReadTimeout", "category": "TIMEOUT"}),
+        ]
+        self._create_synthetic_evidence(bar_count=360, feed_events=feed_evs_term)
+        proc_term = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
+        self.assertIn("4.3: Feed connection stability & recovery", proc_term.stdout)
+        self.assertIn("Terminal disconnect: ReadTimeout [TIMEOUT]", proc_term.stdout)
+        self.assertIn("Terminal disconnect: ReadTimeout [TIMEOUT]", proc_term.stdout)
+        self.assertIn("GATE G7 ACCEPTANCE CRITERIA: FAIL", proc_term.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()
 
