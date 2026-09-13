@@ -501,21 +501,37 @@ if [ "$MANIFEST_EXISTS" = true ]; then
     END_ISO=$(get_json_field "$MANIFEST_FILE" "end_time_utc")
     DURATION_SEC=""
     if [ -n "$START_ISO" ] && [ -n "$END_ISO" ] && [ "$START_ISO" != "null" ] && [ "$END_ISO" != "null" ]; then
+        DURATION_PY='
+import sys
+from datetime import datetime
+try:
+    s_raw = sys.argv[1].strip()
+    e_raw = sys.argv[2].strip()
+    if not s_raw or not e_raw or s_raw == "null" or e_raw == "null":
+        sys.exit(1)
+    s = datetime.fromisoformat(s_raw.replace("Z", "+00:00"))
+    e = datetime.fromisoformat(e_raw.replace("Z", "+00:00"))
+    if s.tzinfo is None or e.tzinfo is None:
+        sys.exit(1)
+    diff = (e - s).total_seconds()
+    if diff < 0:
+        sys.exit(1)
+    print(int(diff))
+except Exception:
+    sys.exit(1)
+'
         if [ -n "$HOST_PYTHON" ]; then
-            DURATION_SEC=$("$HOST_PYTHON" -c "from datetime import datetime; s=datetime.fromisoformat('$START_ISO'.replace('Z', '+00:00')); e=datetime.fromisoformat('$END_ISO'.replace('Z', '+00:00')); print(int((e-s).total_seconds()))" 2>/dev/null || echo "")
+            DURATION_SEC=$("$HOST_PYTHON" -c "$DURATION_PY" "$START_ISO" "$END_ISO" 2>/dev/null || echo "")
         else
-            DURATION_SEC=$(run_evidence_python "" "from datetime import datetime; s=datetime.fromisoformat('$START_ISO'.replace('Z', '+00:00')); e=datetime.fromisoformat('$END_ISO'.replace('Z', '+00:00')); print(int((e-s).total_seconds()))" 2>/dev/null || echo "")
+            DURATION_SEC=$(run_evidence_python "" "$DURATION_PY" "$START_ISO" "$END_ISO" 2>/dev/null || echo "")
         fi
-    fi
-    if [ -z "$DURATION_SEC" ] || [ "$DURATION_SEC" = "null" ]; then
-        DURATION_SEC=$(get_json_field "$MANIFEST_FILE" "duration_seconds")
     fi
     DURATION_SEC=$(echo "$DURATION_SEC" | tr -d '[:space:]')
 
     if [ -n "$DURATION_SEC" ] && [ "$DURATION_SEC" -ge 21600 ] 2>/dev/null; then
         record_check "5.1" "Session duration >= 6.00 continuous hours (21,600s)" "PASS" "Duration: ${DURATION_SEC}s ($((DURATION_SEC/3600))h $(( (DURATION_SEC%3600)/60 ))m)"
     else
-        record_check "5.1" "Session duration >= 6.00 continuous hours (21,600s)" "FAIL" "Duration: ${DURATION_SEC}s (Required: >= 21600s)"
+        record_check "5.1" "Session duration >= 6.00 continuous hours (21,600s)" "FAIL" "Duration: ${DURATION_SEC:-undefined}s (Required: >= 21600s derived from canonical start/end timestamps)"
     fi
 else
     record_check "5.1" "Session duration verification" "FAIL" "Missing manifest for timing audit"

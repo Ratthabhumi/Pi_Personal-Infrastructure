@@ -884,6 +884,159 @@ class TestG7Suite(unittest.TestCase):
         self.assertNotEqual(proc.returncode, 0)
         self.assertIn("Missing or empty", proc.stdout)
 
+
+    def test_wave_h_storage_root_and_sessions_dir_contract(self):
+        """Requirement A & B: Wave H storage root resolves to /data/docker/acash, sessions dir to /sessions, and no /sessions/sessions."""
+        wave_h_path = REPO_ROOT / "docs" / "operations" / "g7_post_soak_forensic_checklist.md"
+        self.assertTrue(wave_h_path.is_file(), "Wave H checklist doc must exist")
+        with open(wave_h_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        # Must NOT contain /sessions/sessions anywhere
+        self.assertNotIn("/sessions/sessions", content, "Wave H must NEVER contain /sessions/sessions")
+
+        # Must define proper contract
+        self.assertIn('STORAGE_ROOT="${ACASH_STORAGE_ROOT:-/data/docker/acash}"', content)
+        self.assertIn('SESSIONS_DIR="${STORAGE_ROOT}/sessions"', content)
+        self.assertIn('-v "${STORAGE_ROOT}:${STORAGE_ROOT}:ro"', content)
+        self.assertIn('--storage "${SESSIONS_DIR}"', content)
+
+    def test_wave_h_embedded_python_snippets_syntax(self):
+        """Requirement C: Every embedded executable Python snippet in Wave H passes syntax validation without syntax errors."""
+        import ast, re
+        wave_h_path = REPO_ROOT / "docs" / "operations" / "g7_post_soak_forensic_checklist.md"
+        with open(wave_h_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        blocks = re.findall(r"```bash\s*\n([\s\S]*?)```", content)
+        snippets = []
+        for b in blocks:
+            m = re.search(r"-c\s+'\n([\s\S]*?)\n'", b)
+            if m:
+                snippets.append(m.group(1))
+
+        self.assertGreaterEqual(len(snippets), 4, "Expected 4 embedded Python snippets in Wave H")
+
+        for idx, snip in enumerate(snippets, 1):
+            try:
+                ast.parse(snip)
+            except SyntaxError as e:
+                self.fail(f"Wave H embedded Python snippet #{idx} failed syntax validation: {e}\nSnippet:\n{snip}")
+
+    def test_wave_h_canonical_eligibility_not_new_rule(self):
+        """Requirement G: Wave H must NOT define Dimensions 1-4 PASS => Canonical Eligibility as a new governance rule."""
+        wave_h_path = REPO_ROOT / "docs" / "operations" / "g7_post_soak_forensic_checklist.md"
+        with open(wave_h_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        self.assertNotIn("Dimensions 1\u20134 are `PASS`", content)
+        self.assertNotIn("Dimensions 1-4 are `PASS`", content)
+        self.assertNotIn("Dimensions 1\u20134 PASS", content)
+        self.assertNotIn("Dimensions 1-4 PASS", content)
+        self.assertIn("This checklist does not independently create, add, remove, reinterpret, or retroactively change G7 acceptance criteria.", content)
+        self.assertIn("VERIFIER-REPORTED ELIGIBLE", content)
+        self.assertIn("NOT ESTABLISHED", content)
+
+    def test_duration_computed_from_canonical_start_end_only(self):
+        """Requirement D: Canonical duration >= 6 hours computed from start_time_utc and end_time_utc."""
+        start_dt = datetime(2026, 9, 12, 6, 0, 0, tzinfo=timezone.utc)
+        end_dt = start_dt + timedelta(hours=6, minutes=5) # 21900s
+        self._create_synthetic_evidence(bar_count=360, start_time=start_dt, end_time=end_dt)
+
+        proc = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("5.1: Session duration >= 6.00 continuous hours", proc.stdout)
+        self.assertIn("PASS", proc.stdout)
+        self.assertIn("Duration: 21900s", proc.stdout)
+
+    def test_duration_fails_closed_when_start_time_missing_or_null(self):
+        """Requirement E: Missing or null start_time_utc fails closed."""
+        self._create_synthetic_evidence(bar_count=360)
+        with open(self.manifest_file, "r", encoding="utf-8") as f:
+            m = json.load(f)
+        m["start_time_utc"] = None
+        with open(self.manifest_file, "w", encoding="utf-8") as f:
+            json.dump(m, f, indent=2)
+
+        proc = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("5.1: Session duration >= 6.00 continuous hours", proc.stdout)
+        self.assertIn("FAIL", proc.stdout)
+
+    def test_duration_fails_closed_when_end_time_missing_or_null(self):
+        """Requirement E: Missing or null end_time_utc fails closed."""
+        self._create_synthetic_evidence(bar_count=360)
+        with open(self.manifest_file, "r", encoding="utf-8") as f:
+            m = json.load(f)
+        m["end_time_utc"] = None
+        with open(self.manifest_file, "w", encoding="utf-8") as f:
+            json.dump(m, f, indent=2)
+
+        proc = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("5.1: Session duration >= 6.00 continuous hours", proc.stdout)
+        self.assertIn("FAIL", proc.stdout)
+
+    def test_duration_fails_closed_when_timestamp_malformed(self):
+        """Requirement E: Malformed ISO-8601 timestamp fails closed."""
+        self._create_synthetic_evidence(bar_count=360)
+        with open(self.manifest_file, "r", encoding="utf-8") as f:
+            m = json.load(f)
+        m["start_time_utc"] = "NOT_A_VALID_ISO_TIMESTAMP"
+        with open(self.manifest_file, "w", encoding="utf-8") as f:
+            json.dump(m, f, indent=2)
+
+        proc = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("5.1: Session duration >= 6.00 continuous hours", proc.stdout)
+        self.assertIn("FAIL", proc.stdout)
+
+    def test_duration_fails_closed_when_end_before_start(self):
+        """Requirement E: Reversed timestamp ordering (end < start) fails closed."""
+        self._create_synthetic_evidence(bar_count=360)
+        with open(self.manifest_file, "r", encoding="utf-8") as f:
+            m = json.load(f)
+        m["start_time_utc"] = "2026-09-12T12:00:00+00:00"
+        m["end_time_utc"] = "2026-09-12T06:00:00+00:00" # end is 6h BEFORE start
+        with open(self.manifest_file, "w", encoding="utf-8") as f:
+            json.dump(m, f, indent=2)
+
+        proc = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("5.1: Session duration >= 6.00 continuous hours", proc.stdout)
+        self.assertIn("FAIL", proc.stdout)
+
+    def test_duration_fails_closed_when_timezone_naive(self):
+        """Requirement E: Timezone-naive timestamp without offset or Z fails closed."""
+        self._create_synthetic_evidence(bar_count=360)
+        with open(self.manifest_file, "r", encoding="utf-8") as f:
+            m = json.load(f)
+        m["start_time_utc"] = "2026-09-12T06:00:00" # naive
+        m["end_time_utc"] = "2026-09-12T12:05:00"   # naive
+        with open(self.manifest_file, "w", encoding="utf-8") as f:
+            json.dump(m, f, indent=2)
+
+        proc = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("5.1: Session duration >= 6.00 continuous hours", proc.stdout)
+        self.assertIn("FAIL", proc.stdout)
+
+    def test_duration_seconds_alone_cannot_satisfy_gate(self):
+        """Requirement F: Invented duration_seconds alone without valid start/end fails closed."""
+        self._create_synthetic_evidence(bar_count=360)
+        with open(self.manifest_file, "r", encoding="utf-8") as f:
+            m = json.load(f)
+        m["start_time_utc"] = None
+        m["end_time_utc"] = None
+        m["duration_seconds"] = 30000 # Invented fallback
+        with open(self.manifest_file, "w", encoding="utf-8") as f:
+            json.dump(m, f, indent=2)
+
+        proc = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("5.1: Session duration >= 6.00 continuous hours", proc.stdout)
+        self.assertIn("FAIL", proc.stdout)
+
 if __name__ == "__main__":
     unittest.main()
 

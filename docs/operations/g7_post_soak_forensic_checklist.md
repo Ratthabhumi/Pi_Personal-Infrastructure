@@ -96,17 +96,29 @@ state = data["State"]
 cfg = data["Config"]
 host_cfg = data["HostConfig"]
 print("=== CONTAINER IDENTITY ===")
-print(f"Container ID:     {data["Id"]}")
-print(f"Image ID:         {data["Image"]}")
-print(f"Image Tag:        {cfg.get("Image", "N/A")}")
-print(f"StartedAt:        {state.get("StartedAt")}")
-print(f"FinishedAt:       {state.get("FinishedAt")}")
-print(f"ExitCode:         {state.get("ExitCode")}")
-print(f"RestartCount:     {data.get("RestartCount", 0)}")
-print(f"OOMKilled:        {state.get("OOMKilled", False)}")
-print(f"User:             {cfg.get("User", "N/A")}")
-print(f"RestartPolicy:    {host_cfg.get("RestartPolicy", {}).get("Name", "N/A")}")
-print(f"ReadonlyRootfs:   {host_cfg.get("ReadonlyRootfs", False)} (Informational)")
+c_id = data.get("Id", "N/A")
+img_id = data.get("Image", "N/A")
+img_tag = cfg.get("Image", "N/A")
+started = state.get("StartedAt", "N/A")
+finished = state.get("FinishedAt", "N/A")
+exit_code = state.get("ExitCode", "N/A")
+restarts = data.get("RestartCount", 0)
+oom = state.get("OOMKilled", False)
+user = cfg.get("User", "N/A")
+policy = host_cfg.get("RestartPolicy", {}).get("Name", "N/A")
+readonly = host_cfg.get("ReadonlyRootfs", False)
+
+print(f"Container ID:     {c_id}")
+print(f"Image ID:         {img_id}")
+print(f"Image Tag:        {img_tag}")
+print(f"StartedAt:        {started}")
+print(f"FinishedAt:       {finished}")
+print(f"ExitCode:         {exit_code}")
+print(f"RestartCount:     {restarts}")
+print(f"OOMKilled:        {oom}")
+print(f"User:             {user}")
+print(f"RestartPolicy:    {policy}")
+print(f"ReadonlyRootfs:   {readonly} (Informational)")
 '
 ```
 
@@ -157,15 +169,20 @@ The session journal (`.journal.jsonl`) is the single source of truth for runtime
 #### Permission-Safe Read-Only Command:
 ```bash
 # Execute within read-only container mount to bypass host permission boundaries
-STORAGE_ROOT="/data/docker/acash/sessions"
+STORAGE_ROOT="${ACASH_STORAGE_ROOT:-/data/docker/acash}"
+SESSIONS_DIR="${STORAGE_ROOT}/sessions"
 ACASH_IMAGE="acash:e36-ws10-staging"
 SESSION_ID="<SESSION_ID>"
 
-docker run --rm     --user 10001:10001     -v "${STORAGE_ROOT}:${STORAGE_ROOT}:ro"     --entrypoint python     "${ACASH_IMAGE}"     -c '
+docker run --rm \
+    --user 10001:10001 \
+    -v "${STORAGE_ROOT}:${STORAGE_ROOT}:ro" \
+    --entrypoint python \
+    "${ACASH_IMAGE}" \
+    -c '
 import sys, json
 
-session_id = sys.argv[1]
-journal_path = f"/data/docker/acash/sessions/{session_id}.journal.jsonl"
+journal_path = sys.argv[1]
 
 events = []
 feed_connected = 0
@@ -197,8 +214,11 @@ print(f"FEED_DISCONNECTED:     {feed_disconnected}")
 if disconnect_log:
     print("=== DISCONNECT CHRONOLOGY ===")
     for d in disconnect_log:
-        print(f"  Time: {d.get("event_time_utc") or d.get("recorded_at_utc")}, Reason: {d.get("payload", {}).get("reason", "N/A")}")
-' "${SESSION_ID}"
+        t_val = d.get("event_time_utc") or d.get("recorded_at_utc")
+        payload = d.get("payload") or {}
+        r_val = payload.get("reason", "N/A")
+        print(f"  Time: {t_val}, Reason: {r_val}")
+' "${SESSIONS_DIR}/${SESSION_ID}.journal.jsonl"
 ```
 
 ---
@@ -219,12 +239,16 @@ Audit all M1 bars recorded during the session for timestamp ordering, duplicatio
 
 #### Permission-Safe Read-Only Command:
 ```bash
-docker run --rm     --user 10001:10001     -v "${STORAGE_ROOT}:${STORAGE_ROOT}:ro"     --entrypoint python     "${ACASH_IMAGE}"     -c '
+docker run --rm \
+    --user 10001:10001 \
+    -v "${STORAGE_ROOT}:${STORAGE_ROOT}:ro" \
+    --entrypoint python \
+    "${ACASH_IMAGE}" \
+    -c '
 import sys, json
 from datetime import datetime
 
-session_id = sys.argv[1]
-journal_path = f"/data/docker/acash/sessions/{session_id}.journal.jsonl"
+journal_path = sys.argv[1]
 
 bar_times = []
 with open(journal_path, "r", encoding="utf-8") as f:
@@ -245,7 +269,7 @@ if bar_times:
 
     out_of_order = sum(1 for i in range(len(bar_times)-1) if bar_times[i] >= bar_times[i+1])
     print(f"Out-of-Order Bars:   {out_of_order}")
-' "${SESSION_ID}"
+' "${SESSIONS_DIR}/${SESSION_ID}.journal.jsonl"
 ```
 
 ---
@@ -270,9 +294,21 @@ Gate G7 produces three mandatory evidence artifacts:
 #### Canonical Tooling Verification Command (Preferred):
 ```bash
 # Prefer canonical acash.paper integrity and review tooling over custom hash scripts
-docker run --rm     --user 10001:10001     -v "${STORAGE_ROOT}:${STORAGE_ROOT}:ro"     "${ACASH_IMAGE}"     integrity --session-id "${SESSION_ID}" --storage "${STORAGE_ROOT}/sessions"
+docker run --rm \
+    --user 10001:10001 \
+    -v "${STORAGE_ROOT}:${STORAGE_ROOT}:ro" \
+    "${ACASH_IMAGE}" \
+    integrity \
+    --session-id "${SESSION_ID}" \
+    --storage "${SESSIONS_DIR}"
 
-docker run --rm     --user 10001:10001     -v "${STORAGE_ROOT}:${STORAGE_ROOT}:ro"     "${ACASH_IMAGE}"     review --session-id "${SESSION_ID}" --storage "${STORAGE_ROOT}/sessions"
+docker run --rm \
+    --user 10001:10001 \
+    -v "${STORAGE_ROOT}:${STORAGE_ROOT}:ro" \
+    "${ACASH_IMAGE}" \
+    review \
+    --session-id "${SESSION_ID}" \
+    --storage "${SESSIONS_DIR}"
 ```
 
 ---
@@ -321,7 +357,7 @@ Record the results produced by the canonical verification suite (`verify_g7_evid
 | **2. Feed Continuity** | `PASS` / `FAIL` / `UNRESOLVED` | Zero unrecovered disconnects; terminal feed state connected or cleanly completed; cadence verified. | `[PENDING RUN COMPLETION]` |
 | **3. Evidence Integrity** | `PASS` / `FAIL` / `UNRESOLVED` | Journal, Manifest, Snapshots non-empty; chained SHA-256 hashes verify; non-root permissions. | `[PENDING RUN COMPLETION]` |
 | **4. Harness Session Binding** | `PASS` / `FAIL` / `UNRESOLVED` | Harness resolved and tracked the exact active runtime session ID throughout execution. | `[PENDING RUN COMPLETION]` |
-| **5. Canonical Eligibility** | `ELIGIBLE` / `NOT ELIGIBLE` / `REQUIRES HUMAN RATIFICATION` | Dimensions 1–4 are `PASS` and zero governance boundary violations observed. | `[REQUIRES HUMAN RATIFICATION]` |
+| **5. Canonical Eligibility** | `VERIFIER-REPORTED ELIGIBLE` / `VERIFIER-REPORTED NOT ELIGIBLE` / `NOT ESTABLISHED` / `REQUIRES GOVERNANCE REVIEW` | Recorded from the canonical verifier / governance contract applicable to the exact source version that launched the run. This checklist does not independently create, add, remove, reinterpret, or retroactively change G7 acceptance criteria. | `[NOT ESTABLISHED]` |
 | **6. Stage 11 (S11) Gate** | `CLOSED` / `OPEN` | Qualifying continuous run outputs `CLOSED`; operator-recovered or interrupted run outputs `OPEN`. | `[OPEN — PENDING AUDIT]` |
 
 ---
