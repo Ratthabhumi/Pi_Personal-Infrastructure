@@ -22,6 +22,7 @@ Tests:
 
 import json
 import os
+import re
 import sys
 import shutil
 import subprocess
@@ -1135,8 +1136,8 @@ class TestG7Suite(unittest.TestCase):
         self.assertIn(f"Auditing Session ID: {self.session_id}", proc.stdout)
         self.assertIn("GATE G7 ACCEPTANCE CRITERIA: PASS", proc.stdout)
 
-    def test_manifest_schema_completeness_and_validation(self):
-        """Regression Test: Synthetic manifest contains all canonical PaperSessionManifest fields and validates."""
+    def test_manifest_schema_mandatory_field_contract(self):
+        """Regression Test: Synthetic manifest contains all 31 canonical PaperSessionManifest fields."""
         self._create_synthetic_evidence(bar_count=360, has_order=False)
         with open(self.manifest_file, "r", encoding="utf-8") as f:
             m = json.load(f)
@@ -1156,18 +1157,103 @@ class TestG7Suite(unittest.TestCase):
         for field in expected_fields:
             self.assertIn(field, m, f"Required PaperSessionManifest field '{field}' missing from synthetic manifest!")
 
+    def test_manifest_schema_direct_model_validation(self):
+        """Regression Test: Synthetic manifest passes canonical Pydantic model_validate without silent pass on ImportError."""
+        self._create_synthetic_evidence(bar_count=360, has_order=False)
+        with open(self.manifest_file, "r", encoding="utf-8") as f:
+            m = json.load(f)
+
+        import sys
+        acash_src = str(REPO_ROOT.parent / "Acash" / "src")
+        if acash_src not in sys.path:
+            sys.path.insert(0, acash_src)
         try:
-            import sys
-            acash_src = str(REPO_ROOT.parent / "Acash" / "src")
-            if acash_src not in sys.path:
-                sys.path.insert(0, acash_src)
             from acash.paper.manifest import PaperSessionManifest
-            validated = PaperSessionManifest.model_validate(m)
-            self.assertEqual(validated.session_id, self.session_id)
-            self.assertTrue(validated.no_real_orders)
-            self.assertTrue(validated.simulated_fills_only)
-        except ImportError:
-            pass
+        except ImportError as e:
+            self.skipTest(f"Direct Acash PaperSessionManifest import unavailable: {e}")
+
+        validated = PaperSessionManifest.model_validate(m)
+        self.assertEqual(validated.session_id, self.session_id)
+        self.assertTrue(validated.no_real_orders)
+        self.assertTrue(validated.simulated_fills_only)
+
+    def test_direct_schema_validation_cannot_silently_pass_on_importerror(self):
+        """Regression Test: Direct schema validation does not swallow import errors with silent pass."""
+        test_file_path = Path(__file__)
+        with open(test_file_path, "r", encoding="utf-8") as f:
+            t_content = f.read()
+        bad_pattern = "except Import" + "Error:\n            pass"
+        bad_pattern_inline = "except Import" + "Error: pass"
+        self.assertNotIn(bad_pattern, t_content)
+        self.assertNotIn(bad_pattern_inline, t_content)
+        self.assertIn("self.skipTest", t_content)
+
+    def test_g7_audit_duration_fake_duration_seconds_fails(self):
+        """Regression Test: g7.sh audit with fake duration_seconds=30000 but canonical start/end < 6h fails Item 22."""
+        self._create_synthetic_evidence(bar_count=360, has_order=False)
+        with open(self.manifest_file, "r", encoding="utf-8") as f:
+            m = json.load(f)
+
+        # Inject fake duration_seconds=30000, but set start/end to only 2 hours
+        m["duration_seconds"] = 30000
+        m["start_time_utc"] = "2026-09-12T00:00:00Z"
+        m["end_time_utc"] = "2026-09-12T02:00:00Z"
+        with open(self.manifest_file, "w", encoding="utf-8") as f:
+            json.dump(m, f, indent=2)
+
+        proc = run_bash([G7_SCRIPT, "audit", self.session_id], env=self.test_env)
+        clean_out = re.sub(r'\x1b\[[0-9;]*m', '', proc.stdout)
+        self.assertIn("22: Continuous Duration Evidence (>= 6.00h)", clean_out)
+        self.assertIn("[ FAIL ] 22: Continuous Duration Evidence", clean_out)
+        self.assertIn("7200s (< 21600s requirement)", clean_out)
+
+    def test_g7_audit_duration_valid_canonical_start_end_passes(self):
+        """Regression Test: g7.sh audit with valid canonical start/end >= 6h and NO duration_seconds passes Item 22."""
+        self._create_synthetic_evidence(bar_count=360, has_order=False)
+        with open(self.manifest_file, "r", encoding="utf-8") as f:
+            m = json.load(f)
+
+        # Ensure duration_seconds is absent and start/end span exactly 6h
+        m.pop("duration_seconds", None)
+        m["start_time_utc"] = "2026-09-12T00:00:00Z"
+        m["end_time_utc"] = "2026-09-12T06:00:00Z"
+        with open(self.manifest_file, "w", encoding="utf-8") as f:
+            json.dump(m, f, indent=2)
+
+        proc = run_bash([G7_SCRIPT, "audit", self.session_id], env=self.test_env)
+        clean_out = re.sub(r'\x1b\[[0-9;]*m', '', proc.stdout)
+        self.assertIn("22: Continuous Duration Evidence (>= 6.00h)", clean_out)
+        self.assertIn("[ PASS ] 22: Continuous Duration Evidence", clean_out)
+        self.assertIn("21600s continuous execution", clean_out)
+
+    def test_g7_status_does_not_depend_on_duration_seconds(self):
+        """Regression Test: g7.sh status derives duration from canonical timestamps and displays UNAVAILABLE if unparseable."""
+        self._create_synthetic_evidence(bar_count=360, has_order=False)
+        with open(self.manifest_file, "r", encoding="utf-8") as f:
+            m = json.load(f)
+
+        # Case 1: Valid 6h start/end, NO duration_seconds
+        m.pop("duration_seconds", None)
+        m["start_time_utc"] = "2026-09-12T00:00:00Z"
+        m["end_time_utc"] = "2026-09-12T06:00:00Z"
+        with open(self.manifest_file, "w", encoding="utf-8") as f:
+            json.dump(m, f, indent=2)
+
+        proc1 = run_bash([G7_SCRIPT, "status"], env=self.test_env)
+        self.assertEqual(proc1.returncode, 0)
+        self.assertIn("Last Sealed Session:", proc1.stdout)
+        self.assertIn("Duration      : 21600s (6h 0m)", proc1.stdout)
+
+        # Case 2: Unparseable/missing start/end, NO duration_seconds -> displays UNAVAILABLE
+        m.pop("start_time_utc", None)
+        m.pop("end_time_utc", None)
+        with open(self.manifest_file, "w", encoding="utf-8") as f:
+            json.dump(m, f, indent=2)
+
+        proc2 = run_bash([G7_SCRIPT, "status"], env=self.test_env)
+        self.assertEqual(proc2.returncode, 0)
+        self.assertIn("Duration      : UNAVAILABLE", proc2.stdout)
+        self.assertNotIn("0s (0h 0m)", proc2.stdout)
 
     def test_fake_sealed_boolean_rejection_audit_19(self):
         """Regression Test: g7.sh Audit Item 19 verifies canonical sealing fields, not fake sealed boolean."""

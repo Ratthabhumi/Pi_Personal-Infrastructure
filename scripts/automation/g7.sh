@@ -358,16 +358,43 @@ print(mf[0] if mf else "")
             local last_sid
             last_sid=$(basename "$latest_manifest" | sed 's/\.manifest\.json//')
             echo -e "\n${CYAN}Last Sealed Session:${NC} ${last_sid}"
-            local m_sealed m_dur m_status
+            local m_sealed m_status m_start m_end m_dur=""
             m_sealed=$(get_json_field "$latest_manifest" "sealed_at_utc")
             m_status="false"
             if [ -n "$m_sealed" ] && [ "$m_sealed" != "null" ]; then
                 m_status="true (${m_sealed})"
             fi
-            m_dur=$(get_json_field "$latest_manifest" "duration_seconds")
-            if [ -z "$m_dur" ]; then m_dur=0; fi
+            m_start=$(get_json_field "$latest_manifest" "start_time_utc")
+            m_end=$(get_json_field "$latest_manifest" "end_time_utc")
+            if [ -n "$m_start" ] && [ -n "$m_end" ] && [ "$m_start" != "null" ] && [ "$m_end" != "null" ]; then
+                local dur_py='
+import sys
+from datetime import datetime
+try:
+    s = datetime.fromisoformat(sys.argv[1].strip().replace("Z", "+00:00"))
+    e = datetime.fromisoformat(sys.argv[2].strip().replace("Z", "+00:00"))
+    if s.tzinfo is None or e.tzinfo is None:
+        sys.exit(1)
+    diff = int((e - s).total_seconds())
+    if diff <= 0:
+        sys.exit(1)
+    print(diff)
+except Exception:
+    sys.exit(1)
+'
+                if [ -n "$HOST_PYTHON" ]; then
+                    m_dur=$("$HOST_PYTHON" -c "$dur_py" "$m_start" "$m_end" 2>/dev/null || echo "")
+                elif run_evidence_python "" "import sys; sys.exit(0)" 2>/dev/null; then
+                    m_dur=$(run_evidence_python "" "$dur_py" "$m_start" "$m_end" 2>/dev/null || echo "")
+                fi
+            fi
+            m_dur=$(echo "$m_dur" | tr -d '[:space:]')
             echo "  Sealed Status : ${m_status}"
-            echo "  Duration      : ${m_dur}s ($((m_dur/3600))h $(( (m_dur%3600)/60 ))m)"
+            if [ -n "$m_dur" ] && [ "$m_dur" -gt 0 ] 2>/dev/null; then
+                echo "  Duration      : ${m_dur}s ($((m_dur/3600))h $(( (m_dur%3600)/60 ))m)"
+            else
+                echo "  Duration      : UNAVAILABLE"
+            fi
         fi
         echo -e "${BLUE}======================================================================${NC}"
         return 0
@@ -903,20 +930,34 @@ except Exception:
 
     # 22. Continuous Duration Evidence (>= 6.00h)
     if [ "$is_sealed" = true ]; then
-        local dur_t
-        dur_t=$(get_json_field "$manifest_file" "duration_seconds")
-        if [ -z "$dur_t" ] || [ "$dur_t" = "null" ] || [ "$dur_t" = "0" ]; then
-            local start_t end_t
-            start_t=$(get_json_field "$manifest_file" "start_time_utc")
-            end_t=$(get_json_field "$manifest_file" "end_time_utc")
-            if [ -n "$start_t" ] && [ -n "$end_t" ]; then
-                if [ -n "$HOST_PYTHON" ]; then
-                    dur_t=$("$HOST_PYTHON" -c "from datetime import datetime; s=datetime.fromisoformat('$start_t'); e=datetime.fromisoformat('$end_t'); print(int((e-s).total_seconds()))" 2>/dev/null || echo 0)
-                else
-                    dur_t=0
-                fi
-            else
-                dur_t=0
+        local dur_t=""
+        local start_t end_t
+        start_t=$(get_json_field "$manifest_file" "start_time_utc")
+        end_t=$(get_json_field "$manifest_file" "end_time_utc")
+        if [ -n "$start_t" ] && [ -n "$end_t" ] && [ "$start_t" != "null" ] && [ "$end_t" != "null" ]; then
+            local dur_py='
+import sys
+from datetime import datetime
+try:
+    s_raw = sys.argv[1].strip()
+    e_raw = sys.argv[2].strip()
+    if not s_raw or not e_raw or s_raw == "null" or e_raw == "null":
+        sys.exit(1)
+    s = datetime.fromisoformat(s_raw.replace("Z", "+00:00"))
+    e = datetime.fromisoformat(e_raw.replace("Z", "+00:00"))
+    if s.tzinfo is None or e.tzinfo is None:
+        sys.exit(1)
+    diff = (e - s).total_seconds()
+    if diff <= 0:
+        sys.exit(1)
+    print(int(diff))
+except Exception:
+    sys.exit(1)
+'
+            if [ -n "$HOST_PYTHON" ]; then
+                dur_t=$("$HOST_PYTHON" -c "$dur_py" "$start_t" "$end_t" 2>/dev/null || echo "")
+            elif run_evidence_python "" "import sys; sys.exit(0)" 2>/dev/null; then
+                dur_t=$(run_evidence_python "" "$dur_py" "$start_t" "$end_t" 2>/dev/null || echo "")
             fi
         fi
         dur_t=$(echo "$dur_t" | tr -d '[:space:]')
@@ -926,7 +967,7 @@ except Exception:
                 "Proves soak met ratified 6-hour duration requirement" "YES" "YES"
         else
             audit_item "22" "Continuous Duration Evidence (>= 6.00h)" "FAIL" \
-                "$manifest_file" "${dur_t}s (< 21600s requirement)" \
+                "$manifest_file" "${dur_t:-undefined}s (< 21600s requirement)" \
                 "Session duration insufficient" "NO" "YES"
         fi
     else
