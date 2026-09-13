@@ -156,9 +156,9 @@ fi
 # -----------------------------------------------------------------------------
 if [ -f "$JOURNAL_FILE" ]; then
     TOTAL_EVENTS=$(wc -l < "$JOURNAL_FILE" 2>/dev/null || echo "0")
-    BAR_EVENTS=$(grep -c '"event_type": "MARKET_BAR_RECEIVED"' "$JOURNAL_FILE" 2>/dev/null || true)
+    BAR_EVENTS=$(grep -cE '"event_type"[[:space:]]*:[[:space:]]*"MARKET_BAR_RECEIVED"' "$JOURNAL_FILE" 2>/dev/null || true)
     BAR_EVENTS=$(echo "$BAR_EVENTS" | tr -d '[:space:]')
-    
+
     DUPLICATE_TS=$(get_journal_timestamps "$JOURNAL_FILE" | sort | uniq -d | wc -l)
     DUPLICATE_TS=$(echo "$DUPLICATE_TS" | tr -d '[:space:]')
 
@@ -172,6 +172,21 @@ if [ -f "$JOURNAL_FILE" ]; then
         record_check "4.2" "Zero duplicate timestamps in feed stream" "PASS" "0 duplicates detected"
     else
         record_check "4.2" "Zero duplicate timestamps in feed stream" "FAIL" "${DUPLICATE_TS} duplicate timestamps found"
+    fi
+
+    # Check 4.3: Feed connection stability & disconnect diagnostics
+    LAST_FEED_EV=$(grep -oE '"event_type"[[:space:]]*:[[:space:]]*"FEED_(CONNECTED|DISCONNECTED)"' "$JOURNAL_FILE" 2>/dev/null | tail -n 1 || true)
+    DISC_COUNT=$(grep -cE '"event_type"[[:space:]]*:[[:space:]]*"FEED_DISCONNECTED"' "$JOURNAL_FILE" 2>/dev/null || true)
+    DISC_COUNT=$(echo "$DISC_COUNT" | tr -d '[:space:]')
+    if echo "$LAST_FEED_EV" | grep -q "FEED_DISCONNECTED"; then
+        LAST_DISC_LINE=$(grep -E '"event_type"[[:space:]]*:[[:space:]]*"FEED_DISCONNECTED"' "$JOURNAL_FILE" 2>/dev/null | tail -n 1 || true)
+        ERR_CLASS=$(echo "$LAST_DISC_LINE" | grep -oE '"error_class"[[:space:]]*:[[:space:]]*"[^"]*"' | head -n 1 | cut -d'"' -f4 || echo "Unknown")
+        ERR_CAT=$(echo "$LAST_DISC_LINE" | grep -oE '"category"[[:space:]]*:[[:space:]]*"[^"]*"' | head -n 1 | cut -d'"' -f4 || echo "Unknown")
+        record_check "4.3" "Feed connection stability" "FAIL" "Terminal disconnect: ${ERR_CLASS} [${ERR_CAT}]"
+    elif [ "$DISC_COUNT" -gt 0 ]; then
+        record_check "4.3" "Feed connection stability" "PASS" "${DISC_COUNT} disconnect(s) recovered"
+    else
+        record_check "4.3" "Feed connection stability" "PASS" "0 feed disconnects"
     fi
 else
     record_check "4.1" "Journal file present" "FAIL" "Missing ${JOURNAL_FILE}"

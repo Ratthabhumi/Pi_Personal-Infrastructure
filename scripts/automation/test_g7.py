@@ -43,7 +43,7 @@ def run_bash(cmd_args, env=None, cwd=None):
     full_env = os.environ.copy()
     if env:
         full_env.update(env)
-    
+
     clean_args = [str(a).replace("\\", "/") for a in cmd_args]
     proc = subprocess.run(
         [bash_bin] + clean_args,
@@ -91,6 +91,9 @@ class TestG7Suite(unittest.TestCase):
         sealed=True,
         omit_snapshot=False,
         omit_manifest=False,
+        compact_json=False,
+        whitespace_variations=False,
+        feed_events=None,
     ):
         """Generates synthetic valid E3.5 paper evidence files."""
         if start_time is None:
@@ -116,8 +119,31 @@ class TestG7Suite(unittest.TestCase):
                 "previous_event_hash": prev_hash,
                 "event_hash": "a" * 64,
             }
-            jf.write(json.dumps(genesis) + "\n")
+            if compact_json:
+                jf.write(json.dumps(genesis, separators=(',', ':')) + "\n")
+            else:
+                jf.write(json.dumps(genesis) + "\n")
             prev_hash = genesis["event_hash"]
+
+            if feed_events:
+                for fe_type, fe_time, fe_payload in feed_events:
+                    fe = {
+                        "event_id": f"00000000-0000-feed-0000-{len(prev_hash):012d}",
+                        "session_id": self.session_id,
+                        "sequence": 9990,
+                        "event_type": fe_type,
+                        "layer": "SYSTEM",
+                        "event_time_utc": fe_time.isoformat(),
+                        "recorded_at_utc": fe_time.isoformat(),
+                        "payload": fe_payload,
+                        "previous_event_hash": prev_hash,
+                        "event_hash": f"feed_hash_{fe_type}",
+                    }
+                    if compact_json:
+                        jf.write(json.dumps(fe, separators=(',', ':')) + "\n")
+                    else:
+                        jf.write(json.dumps(fe) + "\n")
+                    prev_hash = fe["event_hash"]
 
             # Market Bars
             for i in range(bar_count):
@@ -147,7 +173,19 @@ class TestG7Suite(unittest.TestCase):
                     "previous_event_hash": prev_hash,
                     "event_hash": f"hash_{i:060d}",
                 }
-                jf.write(json.dumps(ev) + "\n")
+                if compact_json:
+                    jf.write(json.dumps(ev, separators=(',', ':')) + "\n")
+                elif whitespace_variations:
+                    if i % 3 == 0:
+                        jf.write(json.dumps(ev, separators=(',', ':')) + "\n")
+                    elif i % 3 == 1:
+                        jf.write(json.dumps(ev, separators=(', ', ': ')) + "\n")
+                    else:
+                        # multi-space variation
+                        s = json.dumps(ev, separators=(', ', '  :  '))
+                        jf.write(s + "\n")
+                else:
+                    jf.write(json.dumps(ev) + "\n")
                 prev_hash = ev["event_hash"]
 
             if has_order:
@@ -384,6 +422,109 @@ class TestG7Suite(unittest.TestCase):
 
         # 4. Must mount only storage root
         self.assertIn('-v "${STORAGE_ROOT}:${STORAGE_ROOT}"', content, "execute_g7_soak.sh must mount only STORAGE_ROOT")
+
+
+
+    # -------------------------------------------------------------------------
+    # REGRESSION TESTS FOR G7/S11 SOAK HARNESS REPAIR
+    # -------------------------------------------------------------------------
+
+    def test_compact_json_bar_count_instrumentation(self):
+        """Regression Test 1: Verify compact JSON ('"event_type":"MARKET_BAR_RECEIVED"')
+        is properly counted by both g7.sh and verify_g7_evidence.sh, reporting 330 instead of 0."""
+        self._create_synthetic_evidence(bar_count=330, compact_json=True)
+        with open(self.journal_file, "r", encoding="utf-8") as f:
+            sample_line = f.readlines()[1]
+        self.assertIn('"event_type":"MARKET_BAR_RECEIVED"', sample_line)
+        self.assertNotIn('"event_type": "MARKET_BAR_RECEIVED"', sample_line)
+
+        # Test verify_g7_evidence.sh bar detection
+        proc_ver = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
+        # Should count 330 bars, NOT 0 bars
+        self.assertIn("330 bars recorded", proc_ver.stdout)
+        self.assertNotIn("Only 0 bars recorded", proc_ver.stdout)
+
+    def test_whitespace_variation_bar_count(self):
+        """Regression Test 2: Verify mixed whitespace formats across 330 bars are all counted accurately."""
+        self._create_synthetic_evidence(bar_count=330, whitespace_variations=True)
+        proc_ver = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
+        self.assertIn("330 bars recorded", proc_ver.stdout)
+
+    def test_no_false_zero_bar_count_when_valid_bars_exist(self):
+        """Regression Test 3: Ensure journal with valid compact bars never reports 0 bars ingested."""
+        self._create_synthetic_evidence(bar_count=330, compact_json=True)
+        # Check through shell function count_journal_bars in execute_g7_soak.sh
+        EXECUTE_SCRIPT = REPO_ROOT / "scripts" / "automation" / "execute_g7_soak.sh"
+        cmd = [
+            "-c",
+            f". {str(EXECUTE_SCRIPT).replace('\\', '/')} >/dev/null 2>&1 || true; count_journal_bars {str(self.journal_file).replace('\\', '/')}"
+        ]
+        proc = run_bash(cmd, env=self.test_env)
+        reported_count = proc.stdout.strip()
+        self.assertEqual(reported_count, "330")
+        self.assertNotEqual(reported_count, "0")
+
+    def test_feed_disconnected_detection_terminal(self):
+        """Regression Test 4: Verify terminal FEED_DISCONNECTED without recovery is detected fail-closed."""
+        now = datetime.now(timezone.utc)
+        feed_evs = [
+            ("FEED_CONNECTED", now - timedelta(hours=5), {"provider": "binance_public_klines"}),
+            ("FEED_DISCONNECTED", now - timedelta(minutes=30), {"reason": "BinancePublicKlinesFeed ReadTimeout"}),
+        ]
+        self._create_synthetic_evidence(bar_count=330, compact_json=True, feed_events=feed_evs)
+
+        EXECUTE_SCRIPT = REPO_ROOT / "scripts" / "automation" / "execute_g7_soak.sh"
+        # Test check_feed_disconnected function
+        cmd = [
+            "-c",
+            f". {str(EXECUTE_SCRIPT).replace('\\', '/')} >/dev/null 2>&1 || true; check_feed_disconnected {str(self.journal_file).replace('\\', '/')} acash-staging"
+        ]
+        proc = run_bash(cmd, env=self.test_env)
+        # check_feed_disconnected returns 0 when terminal disconnect is detected
+        self.assertEqual(proc.returncode, 0, "Terminal FEED_DISCONNECTED must be detected as fatal!")
+
+    def test_feed_disconnected_with_recovery_recognized(self):
+        """Regression Test 5: Verify FEED_DISCONNECTED followed by FEED_CONNECTED recovery is recognized."""
+        now = datetime.now(timezone.utc)
+        feed_evs = [
+            ("FEED_CONNECTED", now - timedelta(hours=5), {"provider": "binance_public_klines"}),
+            ("FEED_DISCONNECTED", now - timedelta(hours=3), {"reason": "Transient network hiccup"}),
+            ("FEED_CONNECTED", now - timedelta(hours=2, minutes=59), {"provider": "binance_public_klines"}),
+        ]
+        self._create_synthetic_evidence(bar_count=330, compact_json=True, feed_events=feed_evs)
+
+        EXECUTE_SCRIPT = REPO_ROOT / "scripts" / "automation" / "execute_g7_soak.sh"
+        cmd = [
+            "-c",
+            f". {str(EXECUTE_SCRIPT).replace('\\', '/')} >/dev/null 2>&1 || true; check_feed_disconnected {str(self.journal_file).replace('\\', '/')} acash-staging"
+        ]
+        proc = run_bash(cmd, env=self.test_env)
+        # Returns 1 (non-zero) because feed successfully recovered
+        self.assertEqual(proc.returncode, 1, "Recovered feed must NOT be flagged as terminal disconnect!")
+
+
+    def test_feed_disconnected_structured_diagnostics_display(self):
+        """Regression Test 6: Verify verify_g7_evidence.sh Check 4.3 audits structured feed diagnostics."""
+        now = datetime.now(timezone.utc)
+        feed_evs = [
+            ("FEED_CONNECTED", now - timedelta(hours=5), {
+                "provider": "binance.public.klines",
+                "symbol": "BTCUSDT",
+            }),
+            ("FEED_DISCONNECTED", now - timedelta(minutes=30), {
+                "provider": "binance.public.klines",
+                "error_class": "ReadTimeout",
+                "category": "TIMEOUT",
+                "operation": "poll",
+                "reason": "BinancePublicKlinesFeed.poll_next_bar connection lost: ReadTimeout",
+                "last_bar_utc": (now - timedelta(minutes=31)).isoformat(),
+            }),
+        ]
+        self._create_synthetic_evidence(bar_count=330, compact_json=True, feed_events=feed_evs)
+
+        proc = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
+        self.assertIn("Terminal disconnect: ReadTimeout [TIMEOUT]", proc.stdout)
+        self.assertIn("4.3: Feed connection stability", proc.stdout)
 
 
 if __name__ == "__main__":

@@ -154,15 +154,22 @@ cmd_status() {
     # Journal / Bar statistics
     local journal_file="${SESSIONS_DIR}/${session_id}.journal.jsonl"
     local bar_count=0 duplicate_ts=0 latest_bar_ts="None" latest_journal_ts="None" feed_fails=0
+    local latest_feed_err="None" latest_feed_cat="None"
     if [ -f "$journal_file" ]; then
-        bar_count=$(grep -c '"event_type": "MARKET_BAR_RECEIVED"' "$journal_file" 2>/dev/null || true)
+        bar_count=$(grep -cE '"event_type"[[:space:]]*:[[:space:]]*"MARKET_BAR_RECEIVED"' "$journal_file" 2>/dev/null || true)
         bar_count=$(echo "$bar_count" | tr -d '[:space:]')
         duplicate_ts=$(get_journal_timestamps "$journal_file" | sort | uniq -d | wc -l)
         duplicate_ts=$(echo "$duplicate_ts" | tr -d '[:space:]')
         latest_bar_ts=$(get_journal_timestamps "$journal_file" | tail -n 1 || echo "None")
-        latest_journal_ts=$(tail -n 1 "$journal_file" 2>/dev/null | grep -o '"recorded_at_utc": "[^"]*"' | head -n 1 | cut -d'"' -f4 || echo "None")
-        feed_fails=$(grep -c '"event_type": "FEED_DISCONNECTED"' "$journal_file" 2>/dev/null || true)
+        latest_journal_ts=$(tail -n 1 "$journal_file" 2>/dev/null | grep -oE '"recorded_at_utc"[[:space:]]*:[[:space:]]*"[^"]*"' | head -n 1 | cut -d'"' -f4 || echo "None")
+        feed_fails=$(grep -cE '"event_type"[[:space:]]*:[[:space:]]*"FEED_DISCONNECTED"' "$journal_file" 2>/dev/null || true)
         feed_fails=$(echo "$feed_fails" | tr -d '[:space:]')
+        if [ "$feed_fails" -gt 0 ]; then
+            local last_disc_line
+            last_disc_line=$(grep -E '"event_type"[[:space:]]*:[[:space:]]*"FEED_DISCONNECTED"' "$journal_file" 2>/dev/null | tail -n 1 || true)
+            latest_feed_err=$(echo "$last_disc_line" | grep -oE '"error_class"[[:space:]]*:[[:space:]]*"[^"]*"' | head -n 1 | cut -d'"' -f4 || echo "Unknown")
+            latest_feed_cat=$(echo "$last_disc_line" | grep -oE '"category"[[:space:]]*:[[:space:]]*"[^"]*"' | head -n 1 | cut -d'"' -f4 || echo "Unknown")
+        fi
     fi
 
     # Metrics listener check on :9102
@@ -196,6 +203,9 @@ except Exception:
     echo -e "Latest Bar Time  : ${latest_bar_ts}"
     echo -e "Latest Journal   : ${latest_journal_ts}"
     echo -e "Feed Disconnects : ${feed_fails}"
+    if [ "$feed_fails" -gt 0 ]; then
+        echo -e "Feed Diagnosis   : ${latest_feed_err} [${latest_feed_cat}]"
+    fi
     echo -e "Metrics (:9102)  : ${metrics_status}"
     echo -e "VM Scrape Health : ${vm_target_health}"
     echo -e "NO_REAL_ORDERS   : true"
