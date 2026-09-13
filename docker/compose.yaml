@@ -466,3 +466,35 @@ services:
     labels:
       - "traefik.enable=false"
       - "com.centurylinklabs.watchtower.enable=false"
+
+  acash-dashboard:
+    image: acash-dashboard:feature-shadow-alpha
+    container_name: acash-dashboard
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - proxy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.05'
+          memory: 32M
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/healthz" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.acash-dash-lan.rule=Host(`acash.mew.lab`)"
+      - "traefik.http.routers.acash-dash-lan.entrypoints=web"
+      - "traefik.http.services.acash-dash.loadbalancer.server.port=8080"
+      - "traefik.http.routers.acash-dash-ts.rule=Host(`acash.homelab.tail35e4b4.ts.net`)"
+      - "traefik.http.routers.acash-dash-ts.entrypoints=websecure"
+      - "traefik.http.routers.acash-dash-ts.tls.certresolver=tsresolver"
+      - "com.centurylinklabs.watchtower.enable=false"
