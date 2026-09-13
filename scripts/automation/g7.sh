@@ -46,6 +46,32 @@ print_banner() {
     echo -e "${BLUE}======================================================================${NC}"
 }
 
+# Centralized Host Python Resolution Contract
+resolve_host_python() {
+    if [ -n "${G7_PYTHON_BIN:-}" ]; then
+        if "$G7_PYTHON_BIN" -c "import sys" >/dev/null 2>&1; then
+            printf '%s\n' "$G7_PYTHON_BIN"
+            return 0
+        else
+            echo "[ERROR] Configured G7_PYTHON_BIN ('$G7_PYTHON_BIN') not executable or invalid" >&2
+            return 1
+        fi
+    fi
+
+    if python3 -c "import sys" >/dev/null 2>&1; then
+        command -v python3
+        return 0
+    elif python -c "import sys" >/dev/null 2>&1; then
+        command -v python
+        return 0
+    else
+        echo "[ERROR] No usable host Python interpreter found (checked python3, python)" >&2
+        return 1
+    fi
+}
+
+HOST_PYTHON=$(resolve_host_python 2>/dev/null || true)
+
 # Robust JSON field extractor (jq with python fallback)
 get_json_field() {
     local file="$1"
@@ -53,8 +79,8 @@ get_json_field() {
     if [ ! -f "$file" ]; then echo ""; return 0; fi
     if command -v jq >/dev/null 2>&1; then
         jq -r ".${field} // empty" "$file" 2>/dev/null || true
-    else
-        python -c "import json, sys; d=json.load(open(sys.argv[1], encoding='utf-8')); val=d.get(sys.argv[2], ''); print('' if val is None else val)" "$file" "$field" 2>/dev/null || true
+    elif [ -n "$HOST_PYTHON" ]; then
+        "$HOST_PYTHON" -c "import json, sys; d=json.load(open(sys.argv[1], encoding='utf-8')); val=d.get(sys.argv[2], ''); print('' if val is None else val)" "$file" "$field" 2>/dev/null || true
     fi
 }
 
@@ -63,20 +89,26 @@ get_journal_timestamps() {
     local file="$1"
     if [ ! -f "$file" ]; then return 0; fi
     if command -v jq >/dev/null 2>&1; then
-        grep '"event_type": "MARKET_BAR_RECEIVED"' "$file" 2>/dev/null \
+        grep -E '"event_type"[[:space:]]*:[[:space:]]*"MARKET_BAR_RECEIVED"' "$file" 2>/dev/null \
             | jq -r '.payload.timestamp_utc // .event_time_utc // empty' 2>/dev/null || true
-    else
-        python -c "
+    elif [ -n "$HOST_PYTHON" ]; then
+        "$HOST_PYTHON" -c "
 import json, sys
-with open(sys.argv[1], 'r', encoding='utf-8') as f:
-    for line in f:
-        if '\"event_type\": \"MARKET_BAR_RECEIVED\"' in line:
-            try:
-                ev = json.loads(line)
-                ts = ev.get('payload', {}).get('timestamp_utc') or ev.get('event_time_utc')
-                if ts: print(ts)
-            except Exception: pass
+try:
+    with open(sys.argv[1], 'r', encoding='utf-8') as f:
+        for line in f:
+            if '\"event_type\"' in line and '\"MARKET_BAR_RECEIVED\"' in line:
+                try:
+                    ev = json.loads(line)
+                    if ev.get('event_type') == 'MARKET_BAR_RECEIVED':
+                        ts = ev.get('payload', {}).get('timestamp_utc') or ev.get('event_time_utc')
+                        if ts: print(ts)
+                except Exception: pass
+except Exception: pass
 " "$file" 2>/dev/null || true
+    else
+        grep -E '"event_type"[[:space:]]*:[[:space:]]*"MARKET_BAR_RECEIVED"' "$file" 2>/dev/null \
+            | grep -oE '"timestamp_utc"[[:space:]]*:[[:space:]]*"[^"]+"' | cut -d'"' -f4 || true
     fi
 }
 
@@ -87,9 +119,13 @@ cmd_status() {
     print_banner "OPERATOR STATUS DASHBOARD"
 
     local container_id
-    container_id=$(docker ps --filter "name=acash-staging" --filter "status=running" -q 2>/dev/null || true)
-    if [ -z "$container_id" ]; then
-        container_id=$(docker ps --filter "name=acash-soak" --filter "status=running" -q 2>/dev/null || true)
+    if [ "${G7_TEST_MODE:-0}" = "1" ]; then
+        container_id="${G7_TEST_CONTAINER_ID:-}"
+    else
+        container_id=$(docker ps --filter "name=acash-staging" --filter "status=running" -q 2>/dev/null || true)
+        if [ -z "$container_id" ]; then
+            container_id=$(docker ps --filter "name=acash-soak" --filter "status=running" -q 2>/dev/null || true)
+        fi
     fi
 
     if [ -z "$container_id" ]; then
@@ -412,7 +448,10 @@ cmd_audit() {
     # 12. VictoriaMetrics Telemetry Queryability
     local vm_ok="PASS"
     local vm_detail="http://127.0.0.1:8428"
-    if docker ps --filter "name=victoriametrics" --filter "status=running" -q 2>/dev/null | grep -q .; then
+    if [ "${G7_TEST_MODE:-0}" = "1" ]; then
+        vm_ok="PASS"
+        vm_detail="VictoriaMetrics service defined in compose.yaml with scrape config (test mode bypass)"
+    elif docker ps --filter "name=victoriametrics" --filter "status=running" -q 2>/dev/null | grep -q .; then
         local vm_health
         vm_health=$(docker exec victoriametrics wget -qO- "http://127.0.0.1:8428/-/healthy" 2>/dev/null || echo "")
         if [ "$vm_health" = "OK" ] || [ -n "$vm_health" ]; then
@@ -421,7 +460,7 @@ cmd_audit() {
             vm_ok="WARN"
             vm_detail="Unresponsive /healthy endpoint"
         fi
-    elif [ -z "${target_session}" ] || [ "${G7_TEST_MODE:-0}" = "1" ]; then
+    elif [ -z "${target_session}" ]; then
         vm_ok="PASS"
         vm_detail="VictoriaMetrics service defined in compose.yaml with scrape config"
     else
@@ -462,7 +501,7 @@ cmd_audit() {
     # 18. Zero-Order Submission Evidence
     if [ -n "$target_session" ] && [ -f "$journal_file" ]; then
         local real_orders
-        real_orders=$(grep -c '"event_type": "ORDER_SUBMITTED"' "$journal_file" 2>/dev/null || true)
+        real_orders=$(grep -cE '"event_type"[[:space:]]*:[[:space:]]*"ORDER_SUBMITTED"' "$journal_file" 2>/dev/null || true)
         real_orders=$(echo "$real_orders" | tr -d '[:space:]')
         if [ "$real_orders" = "0" ]; then
             audit_item "18" "Zero Order Submission Evidence" "PASS" \
@@ -505,7 +544,11 @@ cmd_audit() {
             start_t=$(get_json_field "$manifest_file" "start_time_utc")
             end_t=$(get_json_field "$manifest_file" "end_time_utc")
             if [ -n "$start_t" ] && [ -n "$end_t" ]; then
-                dur_t=$(python -c "from datetime import datetime; s=datetime.fromisoformat('$start_t'); e=datetime.fromisoformat('$end_t'); print(int((e-s).total_seconds()))" 2>/dev/null || echo 0)
+                if [ -n "$HOST_PYTHON" ]; then
+                    dur_t=$("$HOST_PYTHON" -c "from datetime import datetime; s=datetime.fromisoformat('$start_t'); e=datetime.fromisoformat('$end_t'); print(int((e-s).total_seconds()))" 2>/dev/null || echo 0)
+                else
+                    dur_t=0
+                fi
             else
                 dur_t=0
             fi
@@ -589,7 +632,11 @@ cmd_start() {
     # Invariant: Foreground execution by default
     echo -e "${YELLOW}>>> STEP 1: Verifying Clean Runtime Slate...${NC}"
     local running_acash
-    running_acash=$(docker ps --filter "name=acash" -q 2>/dev/null || true)
+    if [ "${G7_TEST_MODE:-0}" = "1" ]; then
+        running_acash="${G7_TEST_CONTAINER_ID:-}"
+    else
+        running_acash=$(docker ps --filter "name=acash" -q 2>/dev/null || true)
+    fi
     if [ -n "$running_acash" ]; then
         echo -e "${RED}[FAIL-CLOSED] Container already running: ${running_acash}!${NC}"
         echo "Stop existing container before launching a new G7 soak session."

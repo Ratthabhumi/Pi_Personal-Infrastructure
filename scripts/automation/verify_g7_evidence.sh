@@ -46,6 +46,32 @@ FAILURES=0
 G7_CONTINUITY_ELIGIBLE=true
 RUN_CLASS="CONTINUOUS"
 
+# Centralized Host Python Resolution Contract
+resolve_host_python() {
+    if [ -n "${G7_PYTHON_BIN:-}" ]; then
+        if "$G7_PYTHON_BIN" -c "import sys" >/dev/null 2>&1; then
+            printf '%s\n' "$G7_PYTHON_BIN"
+            return 0
+        else
+            echo "[ERROR] Configured G7_PYTHON_BIN ('$G7_PYTHON_BIN') not executable or invalid" >&2
+            return 1
+        fi
+    fi
+
+    if python3 -c "import sys" >/dev/null 2>&1; then
+        command -v python3
+        return 0
+    elif python -c "import sys" >/dev/null 2>&1; then
+        command -v python
+        return 0
+    else
+        echo "[ERROR] No usable host Python interpreter found (checked python3, python)" >&2
+        return 1
+    fi
+}
+
+HOST_PYTHON=$(resolve_host_python 2>/dev/null || true)
+
 # Robust JSON field extractor (jq with python fallback)
 get_json_field() {
     local file="$1"
@@ -53,8 +79,8 @@ get_json_field() {
     if [ ! -f "$file" ]; then echo ""; return 0; fi
     if command -v jq >/dev/null 2>&1; then
         jq -r ".${field} // empty" "$file" 2>/dev/null || true
-    else
-        python -c "import json, sys; d=json.load(open(sys.argv[1], encoding='utf-8')); val=d.get(sys.argv[2], ''); print(str(val).lower() if isinstance(val, bool) else ('' if val is None else val))" "$file" "$field" 2>/dev/null || true
+    elif [ -n "$HOST_PYTHON" ]; then
+        "$HOST_PYTHON" -c "import json, sys; d=json.load(open(sys.argv[1], encoding='utf-8')); val=d.get(sys.argv[2], ''); print(str(val).lower() if isinstance(val, bool) else ('' if val is None else val))" "$file" "$field" 2>/dev/null || true
     fi
 }
 
@@ -63,20 +89,26 @@ get_journal_timestamps() {
     local file="$1"
     if [ ! -f "$file" ]; then return 0; fi
     if command -v jq >/dev/null 2>&1; then
-        grep '"event_type": "MARKET_BAR_RECEIVED"' "$file" 2>/dev/null \
+        grep -E '"event_type"[[:space:]]*:[[:space:]]*"MARKET_BAR_RECEIVED"' "$file" 2>/dev/null \
             | jq -r '.payload.timestamp_utc // .event_time_utc // empty' 2>/dev/null || true
-    else
-        python -c "
+    elif [ -n "$HOST_PYTHON" ]; then
+        "$HOST_PYTHON" -c "
 import json, sys
-with open(sys.argv[1], 'r', encoding='utf-8') as f:
-    for line in f:
-        if '\"event_type\"' in line and '\"MARKET_BAR_RECEIVED\"' in line:
-            try:
-                ev = json.loads(line)
-                ts = ev.get('payload', {}).get('timestamp_utc') or ev.get('event_time_utc')
-                if ts: print(ts)
-            except Exception: pass
+try:
+    with open(sys.argv[1], 'r', encoding='utf-8') as f:
+        for line in f:
+            if '\"event_type\"' in line and '\"MARKET_BAR_RECEIVED\"' in line:
+                try:
+                    ev = json.loads(line)
+                    if ev.get('event_type') == 'MARKET_BAR_RECEIVED':
+                        ts = ev.get('payload', {}).get('timestamp_utc') or ev.get('event_time_utc')
+                        if ts: print(ts)
+                except Exception: pass
+except Exception: pass
 " "$file" 2>/dev/null || true
+    else
+        grep -E '"event_type"[[:space:]]*:[[:space:]]*"MARKET_BAR_RECEIVED"' "$file" 2>/dev/null \
+            | grep -oE '"timestamp_utc"[[:space:]]*:[[:space:]]*"[^"]+"' | cut -d'"' -f4 || true
     fi
 }
 
@@ -181,7 +213,8 @@ if [ -f "$JOURNAL_FILE" ]; then
     fi
 
     # Check 4.3: Feed connection stability, recovery audit, and run classification
-    FEED_DIAG_OUTPUT=$(python -c '
+    if [ -n "$HOST_PYTHON" ]; then
+        FEED_DIAG_OUTPUT=$("$HOST_PYTHON" -c '
 import json, sys
 
 journal_path = sys.argv[1]
@@ -253,23 +286,51 @@ else:
             check_msg = "Irregular feed reconnection without verified operator recovery event"
             recovery_mechanism = "FAIL"
 
-print(f"PARSED_RUN_CLASS=\"{run_class}\"")
-print(f"PARSED_CONTINUITY_ELIGIBLE=\"{continuity_eligible}\"")
-print(f"PARSED_CHECK_STATUS=\"{check_status}\"")
-print(f"PARSED_CHECK_MSG=\"{check_msg}\"")
-print(f"PARSED_RECOVERY_MECHANISM=\"{recovery_mechanism}\"")
-print(f"PARSED_DISC_COUNT=\"{disc_count}\"")
+print(f"RUN_CLASS={run_class}")
+print(f"CONTINUITY_ELIGIBLE={continuity_eligible}")
+print(f"CHECK_STATUS={check_status}")
+print(f"CHECK_MSG={check_msg}")
+print(f"RECOVERY_MECHANISM={recovery_mechanism}")
+print(f"DISC_COUNT={disc_count}")
 ' "$JOURNAL_FILE" 2>/dev/null || echo "")
+    else
+        FEED_DIAG_OUTPUT=""
+    fi
+
+    PARSED_RUN_CLASS=""
+    PARSED_CONTINUITY_ELIGIBLE=""
+    PARSED_CHECK_STATUS=""
+    PARSED_CHECK_MSG=""
+    PARSED_RECOVERY_MECHANISM=""
+    PARSED_DISC_COUNT=""
 
     if [ -n "$FEED_DIAG_OUTPUT" ]; then
-        eval "$FEED_DIAG_OUTPUT"
+        while IFS='=' read -r key val; do
+            key="${key%$'\r'}"
+            val="${val%$'\r'}"
+            case "$key" in
+                RUN_CLASS) PARSED_RUN_CLASS="$val" ;;
+                CONTINUITY_ELIGIBLE) PARSED_CONTINUITY_ELIGIBLE="$val" ;;
+                CHECK_STATUS) PARSED_CHECK_STATUS="$val" ;;
+                CHECK_MSG) PARSED_CHECK_MSG="$val" ;;
+                RECOVERY_MECHANISM) PARSED_RECOVERY_MECHANISM="$val" ;;
+                DISC_COUNT) PARSED_DISC_COUNT="$val" ;;
+            esac
+        done <<< "$FEED_DIAG_OUTPUT"
+    fi
+
+    if [ -n "$PARSED_RUN_CLASS" ] && [ -n "$PARSED_CHECK_STATUS" ]; then
         RUN_CLASS="$PARSED_RUN_CLASS"
         G7_CONTINUITY_ELIGIBLE="$PARSED_CONTINUITY_ELIGIBLE"
         record_check "4.3" "Feed connection stability & recovery" "$PARSED_CHECK_STATUS" "$PARSED_CHECK_MSG"
     else
         RUN_CLASS="INTERRUPTED"
         G7_CONTINUITY_ELIGIBLE="false"
-        record_check "4.3" "Feed connection stability & recovery" "FAIL" "Failed to parse feed events from journal"
+        if [ -z "$HOST_PYTHON" ]; then
+            record_check "4.3" "Feed connection stability & recovery" "FAIL" "Host Python interpreter unavailable for feed diagnostics"
+        else
+            record_check "4.3" "Feed connection stability & recovery" "FAIL" "Failed to parse feed events from journal"
+        fi
     fi
 else
     record_check "4.1" "Journal file present" "FAIL" "Missing ${JOURNAL_FILE}"
@@ -284,7 +345,11 @@ if [ -f "$MANIFEST_FILE" ]; then
         START_ISO=$(get_json_field "$MANIFEST_FILE" "start_time_utc")
         END_ISO=$(get_json_field "$MANIFEST_FILE" "end_time_utc")
         if [ -n "$START_ISO" ] && [ -n "$END_ISO" ]; then
-            DURATION_SEC=$(python -c "from datetime import datetime; s=datetime.fromisoformat('$START_ISO'); e=datetime.fromisoformat('$END_ISO'); print(int((e-s).total_seconds()))" 2>/dev/null || echo 0)
+            if [ -n "$HOST_PYTHON" ]; then
+                DURATION_SEC=$("$HOST_PYTHON" -c "from datetime import datetime; s=datetime.fromisoformat('$START_ISO'); e=datetime.fromisoformat('$END_ISO'); print(int((e-s).total_seconds()))" 2>/dev/null || echo 0)
+            else
+                DURATION_SEC=0
+            fi
         else
             DURATION_SEC=0
         fi
@@ -324,7 +389,7 @@ fi
 # 7. Security & Order Invariants
 # -----------------------------------------------------------------------------
 if [ -f "$JOURNAL_FILE" ]; then
-    REAL_ORDERS=$(grep -c '"event_type": "ORDER_SUBMITTED"' "$JOURNAL_FILE" 2>/dev/null || true)
+    REAL_ORDERS=$(grep -cE '"event_type"[[:space:]]*:[[:space:]]*"ORDER_SUBMITTED"' "$JOURNAL_FILE" 2>/dev/null || true)
     REAL_ORDERS=$(echo "$REAL_ORDERS" | tr -d '[:space:]')
     if [ "$REAL_ORDERS" = "0" ]; then
         record_check "7.1" "Zero real order submissions in journal (NO_REAL_ORDERS=true)" "PASS" "0 orders submitted"

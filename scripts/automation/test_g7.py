@@ -22,6 +22,7 @@ Tests:
 
 import json
 import os
+import sys
 import shutil
 import subprocess
 import tempfile
@@ -604,6 +605,71 @@ class TestG7Suite(unittest.TestCase):
         self.assertIn("Terminal disconnect: ReadTimeout [TIMEOUT]", proc_term.stdout)
         self.assertIn("Terminal disconnect: ReadTimeout [TIMEOUT]", proc_term.stdout)
         self.assertIn("GATE G7 ACCEPTANCE CRITERIA: FAIL", proc_term.stdout)
+
+
+
+    # -------------------------------------------------------------------------
+    # PORTABILITY & TEST-ISOLATION REGRESSION TESTS
+    # -------------------------------------------------------------------------
+
+    def test_verifier_with_explicit_g7_python_bin(self):
+        """Regression Test: Verify verify_g7_evidence.sh functions with injected G7_PYTHON_BIN."""
+        self._create_synthetic_evidence(bar_count=360)
+        custom_env = self.test_env.copy()
+        custom_env["G7_PYTHON_BIN"] = str(sys.executable).replace("\\", "/")
+
+        proc = run_bash([VERIFY_SCRIPT, self.session_id], env=custom_env)
+        self.assertEqual(proc.returncode, 0, f"Verifier failed with G7_PYTHON_BIN: {proc.stdout}\n{proc.stderr}")
+        self.assertIn("RUN CLASS           = CONTINUOUS", proc.stdout)
+        self.assertIn("G7                  = PASS / VERIFIED", proc.stdout)
+
+    def test_verifier_fails_closed_when_python_interpreter_unavailable(self):
+        """Regression Test: Verify verify_g7_evidence.sh fails closed if Python interpreter cannot be resolved."""
+        self._create_synthetic_evidence(bar_count=360)
+        custom_env = self.test_env.copy()
+        custom_env["G7_PYTHON_BIN"] = "/nonexistent/invalid_python_interpreter"
+
+        proc = run_bash([VERIFY_SCRIPT, self.session_id], env=custom_env)
+        self.assertNotEqual(proc.returncode, 0, "Verifier must exit non-zero when Python interpreter is unavailable!")
+        self.assertIn("Host Python interpreter unavailable for feed diagnostics", proc.stdout)
+        self.assertIn("RUN CLASS           = INTERRUPTED", proc.stdout)
+        self.assertNotIn("G7                  = PASS / VERIFIED", proc.stdout)
+
+    def test_docker_isolation_in_test_mode(self):
+        """Regression Test: G7_TEST_MODE=1 deterministically reports NOT RUNNING regardless of real host Docker state."""
+        custom_env = self.test_env.copy()
+        custom_env.pop("G7_TEST_CONTAINER_ID", None)
+
+        proc = run_bash([G7_SCRIPT, "status"], env=custom_env)
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("G7 = NOT RUNNING", proc.stdout)
+        self.assertNotIn("G7 = RUNNING", proc.stdout)
+
+    def test_docker_isolation_with_explicit_container_injection(self):
+        """Regression Test: G7_TEST_MODE=1 respects explicitly injected test container without querying real Docker."""
+        custom_env = self.test_env.copy()
+        custom_env["G7_TEST_CONTAINER_ID"] = "mock_acash_soak_container_123"
+
+        # In start command, step 1 should detect injected container and fail-closed immediately
+        proc = run_bash([G7_SCRIPT, "start"], env=custom_env)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("Container already running: mock_acash_soak_container_123", proc.stdout)
+
+    def test_preflight_detects_host_python_readiness(self):
+        """Regression Test: preflight_g7_soak.sh Check 1.5 verifies host Python interpreter readiness."""
+        # 1. Valid Python
+        custom_env = self.test_env.copy()
+        custom_env["G7_PYTHON_BIN"] = str(sys.executable).replace("\\", "/")
+        proc_pass = run_bash([PREFLIGHT_SCRIPT], env=custom_env)
+        self.assertIn("1.5: Host Python interpreter present for G7 verification", proc_pass.stdout)
+        self.assertIn("PASS", proc_pass.stdout)
+
+        # 2. Invalid Python
+        custom_env["G7_PYTHON_BIN"] = "/nonexistent/invalid_python_binary"
+        proc_fail = run_bash([PREFLIGHT_SCRIPT], env=custom_env)
+        self.assertIn("1.5: Host Python interpreter present for G7 verification", proc_fail.stdout)
+        self.assertIn("FAIL", proc_fail.stdout)
+        self.assertIn("Neither python3 nor python executable found on host", proc_fail.stdout)
 
 
 if __name__ == "__main__":

@@ -16,12 +16,38 @@ echo -e "${BLUE}================================================================
 echo -e "${BLUE}       ACASH GATE G7 / STAGE S11 (6H SOAK) PREFLIGHT AUDIT           ${NC}"
 echo -e "${BLUE}======================================================================${NC}"
 
-ACASH_DIR="${HOME}/Acash"
-INFRA_DIR="${HOME}/Pi_Personal-Infrastructure"
-if [ ! -d "$ACASH_DIR" ]; then ACASH_DIR="/data/docker/Acash"; fi
-if [ ! -d "$INFRA_DIR" ]; then INFRA_DIR="/data/docker/Pi_Personal-Infrastructure"; fi
+if [ -z "${ACASH_DIR:-}" ]; then
+    ACASH_DIR="${HOME}/Acash"
+    if [ ! -d "$ACASH_DIR" ]; then ACASH_DIR="/data/docker/Acash"; fi
+fi
+if [ -z "${INFRA_DIR:-}" ]; then
+    INFRA_DIR="${HOME}/Pi_Personal-Infrastructure"
+    if [ ! -d "$INFRA_DIR" ]; then INFRA_DIR="/data/docker/Pi_Personal-Infrastructure"; fi
+fi
 
 FAILURES=0
+
+# Centralized Host Python Resolution Contract
+resolve_host_python() {
+    if [ -n "${G7_PYTHON_BIN:-}" ]; then
+        if "$G7_PYTHON_BIN" -c "import sys" >/dev/null 2>&1; then
+            printf '%s\n' "$G7_PYTHON_BIN"
+            return 0
+        else
+            return 1
+        fi
+    fi
+
+    if python3 -c "import sys" >/dev/null 2>&1; then
+        command -v python3
+        return 0
+    elif python -c "import sys" >/dev/null 2>&1; then
+        command -v python
+        return 0
+    else
+        return 1
+    fi
+}
 
 record_check() {
     local num="$1"
@@ -46,33 +72,51 @@ record_check() {
 # 1. Repository Provenance & Ratification Artifact
 # -----------------------------------------------------------------------------
 echo -e "\n${YELLOW}--- 1. Checking Governance Provenance & Ratification ---${NC}"
-cd "$ACASH_DIR"
-ACASH_HEAD=$(git rev-parse --short HEAD)
-RATIF_FILE="$ACASH_DIR/E3.6-HUMAN-RATIFICATION-G7-SOAK.md"
+if [ -d "$ACASH_DIR" ]; then
+    cd "$ACASH_DIR"
+    ACASH_HEAD=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    RATIF_FILE="$ACASH_DIR/E3.6-HUMAN-RATIFICATION-G7-SOAK.md"
 
-if [ -f "$RATIF_FILE" ]; then
-    record_check "1.1" "Human Governance Ratification record RATIF-E36-G7-SOAK-20260912 exists" "PASS" "Found at ${RATIF_FILE}"
+    if [ -f "$RATIF_FILE" ]; then
+        record_check "1.1" "Human Governance Ratification record RATIF-E36-G7-SOAK-20260912 exists" "PASS" "Found at ${RATIF_FILE}"
+    else
+        record_check "1.1" "Human Governance Ratification record RATIF-E36-G7-SOAK-20260912 exists" "FAIL" "Missing ratification record"
+    fi
+
+    PLAN_6H=$(grep -c "6h soak" "$ACASH_DIR/E3.6-IMPLEMENTATION-PLAN.md" 2>/dev/null || true)
+    if [ "$PLAN_6H" -ge 2 ]; then
+        record_check "1.2" "E3.6-IMPLEMENTATION-PLAN.md amended to 6h soak" "PASS" "${PLAN_6H} references found"
+    else
+        record_check "1.2" "E3.6-IMPLEMENTATION-PLAN.md amended to 6h soak" "FAIL" "Found ${PLAN_6H} references"
+    fi
+
+    DESIGN_6H=$(grep -c "6h soak" "$ACASH_DIR/E3.6-DESIGN.md" 2>/dev/null || true)
+    if [ "$DESIGN_6H" -ge 1 ]; then
+        record_check "1.3" "E3.6-DESIGN.md amended to 6h soak" "PASS" "${DESIGN_6H} references found"
+    else
+        record_check "1.3" "E3.6-DESIGN.md amended to 6h soak" "FAIL" "Found ${DESIGN_6H} references"
+    fi
 else
-    record_check "1.1" "Human Governance Ratification record RATIF-E36-G7-SOAK-20260912 exists" "FAIL" "Missing ratification record"
+    record_check "1.1" "Human Governance Ratification record RATIF-E36-G7-SOAK-20260912 exists" "FAIL" "Missing Acash directory: ${ACASH_DIR}"
+    record_check "1.2" "E3.6-IMPLEMENTATION-PLAN.md amended to 6h soak" "FAIL" "Missing Acash directory: ${ACASH_DIR}"
+    record_check "1.3" "E3.6-DESIGN.md amended to 6h soak" "FAIL" "Missing Acash directory: ${ACASH_DIR}"
 fi
 
-PLAN_6H=$(grep -c "6h soak" "$ACASH_DIR/E3.6-IMPLEMENTATION-PLAN.md" || true)
-if [ "$PLAN_6H" -ge 2 ]; then
-    record_check "1.2" "E3.6-IMPLEMENTATION-PLAN.md amended to 6h soak" "PASS" "${PLAN_6H} references found"
+if [ -d "$INFRA_DIR" ]; then
+    cd "$INFRA_DIR"
+    INFRA_HEAD=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    record_check "1.4" "Pi_Personal-Infrastructure HEAD verified" "PASS" "HEAD=${INFRA_HEAD}"
 else
-    record_check "1.2" "E3.6-IMPLEMENTATION-PLAN.md amended to 6h soak" "FAIL" "Found ${PLAN_6H} references"
+    record_check "1.4" "Pi_Personal-Infrastructure HEAD verified" "FAIL" "Missing INFRA directory: ${INFRA_DIR}"
 fi
 
-DESIGN_6H=$(grep -c "6h soak" "$ACASH_DIR/E3.6-DESIGN.md" || true)
-if [ "$DESIGN_6H" -ge 1 ]; then
-    record_check "1.3" "E3.6-DESIGN.md amended to 6h soak" "PASS" "${DESIGN_6H} references found"
+HOST_PY_BIN=$(resolve_host_python 2>/dev/null || true)
+if [ -n "$HOST_PY_BIN" ]; then
+    PY_VER=$("$HOST_PY_BIN" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')" 2>/dev/null || echo "unknown")
+    record_check "1.5" "Host Python interpreter present for G7 verification" "PASS" "${HOST_PY_BIN} (${PY_VER})"
 else
-    record_check "1.3" "E3.6-DESIGN.md amended to 6h soak" "FAIL" "Found ${DESIGN_6H} references"
+    record_check "1.5" "Host Python interpreter present for G7 verification" "FAIL" "Neither python3 nor python executable found on host (or invalid G7_PYTHON_BIN)"
 fi
-
-cd "$INFRA_DIR"
-INFRA_HEAD=$(git rev-parse --short HEAD)
-record_check "1.4" "Pi_Personal-Infrastructure HEAD verified" "PASS" "HEAD=${INFRA_HEAD}"
 
 # -----------------------------------------------------------------------------
 # 2. Storage Root & State Interlock Invariants

@@ -20,11 +20,35 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
+# Centralized Host Python Resolution Contract
+resolve_host_python() {
+    if [ -n "${G7_PYTHON_BIN:-}" ]; then
+        if "$G7_PYTHON_BIN" -c "import sys" >/dev/null 2>&1; then
+            printf '%s\n' "$G7_PYTHON_BIN"
+            return 0
+        else
+            echo "[ERROR] Configured G7_PYTHON_BIN ('$G7_PYTHON_BIN') not executable or invalid" >&2
+            return 1
+        fi
+    fi
+
+    if python3 -c "import sys" >/dev/null 2>&1; then
+        command -v python3
+        return 0
+    elif python -c "import sys" >/dev/null 2>&1; then
+        command -v python
+        return 0
+    else
+        echo "[ERROR] No usable host Python interpreter found (checked python3, python)" >&2
+        return 1
+    fi
+}
+
 get_journal_timestamps() {
     local jfile="$1"
     if [ ! -f "$jfile" ]; then return 0; fi
-    local py_bin="python3"
-    if ! command -v python3 >/dev/null 2>&1 && command -v python >/dev/null 2>&1; then py_bin="python"; fi
+    local py_bin
+    py_bin=$(resolve_host_python 2>/dev/null || true)
 
     if command -v "$py_bin" >/dev/null 2>&1; then
         "$py_bin" -c "
@@ -59,8 +83,8 @@ except Exception:
 count_journal_bars() {
     local jfile="$1"
     if [ ! -f "$jfile" ]; then echo "0"; return 0; fi
-    local py_bin="python3"
-    if ! command -v python3 >/dev/null 2>&1 && command -v python >/dev/null 2>&1; then py_bin="python"; fi
+    local py_bin
+    py_bin=$(resolve_host_python 2>/dev/null || true)
 
     if command -v "$py_bin" >/dev/null 2>&1; then
         "$py_bin" -c "
