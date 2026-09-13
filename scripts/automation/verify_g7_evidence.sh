@@ -17,8 +17,17 @@ SESSIONS_DIR="${STORAGE_ROOT}/sessions"
 
 SESSION_ID="${1:-}"
 if [ -z "$SESSION_ID" ]; then
-    # Pick newest manifest in sessions dir
-    LATEST_MANIFEST=$(ls -t "${SESSIONS_DIR}"/*.manifest.json 2>/dev/null | head -n 1 || true)
+    # Pick newest manifest in sessions dir (permission-safe)
+    if [ -r "${SESSIONS_DIR}" ] 2>/dev/null && [ "${G7_SIMULATE_HOST_UNREADABLE:-0}" != "1" ]; then
+        LATEST_MANIFEST=$(ls -t "${SESSIONS_DIR}"/*.manifest.json 2>/dev/null | head -n 1 || true)
+    else
+        LATEST_MANIFEST=$(run_evidence_python "" '
+import glob, os, sys
+sdir = sys.argv[1]
+mf = sorted(glob.glob(os.path.join(sdir, "*.manifest.json")), key=os.path.getmtime, reverse=True)
+print(mf[0] if mf else "")
+' "${SESSIONS_DIR}" 2>/dev/null || echo "")
+    fi
     if [ -n "$LATEST_MANIFEST" ]; then
         SESSION_ID=$(basename "$LATEST_MANIFEST" | sed 's/\.manifest\.json//')
     fi
@@ -72,32 +81,70 @@ resolve_host_python() {
 
 HOST_PYTHON=$(resolve_host_python 2>/dev/null || true)
 
-# Robust JSON field extractor (jq with python fallback)
+is_host_readable() {
+    local target="$1"
+    if [ "${G7_SIMULATE_HOST_UNREADABLE:-0}" = "1" ]; then
+        return 1
+    fi
+    [ -r "$target" ]
+}
+
+run_evidence_python() {
+    local container_name="${1:-}"
+    local py_code="$2"
+    shift 2
+
+    if [ "${G7_TEST_MODE:-0}" = "1" ]; then
+        if [ "${G7_TEST_CONTAINER_UNREADABLE:-0}" = "1" ]; then
+            return 1
+        fi
+        if [ -n "$container_name" ] && [ "${G7_TEST_DOCKER_EXEC_FAILS:-0}" = "1" ]; then
+            return 1
+        fi
+        local py_bin
+        py_bin=$(resolve_host_python 2>/dev/null || echo "python3")
+        "$py_bin" -c "$py_code" "$@"
+        return $?
+    fi
+
+    # Read-only ephemeral container access
+    docker run --rm \
+        --user 10001:10001 \
+        --entrypoint python \
+        -v "${STORAGE_ROOT}:${STORAGE_ROOT}:ro" \
+        "${ACASH_IMAGE:-acash:e36-ws10-staging}" \
+        -c "$py_code" "$@"
+}
+
 get_json_field() {
     local file="$1"
     local field="$2"
-    if [ ! -f "$file" ]; then echo ""; return 0; fi
-    if command -v jq >/dev/null 2>&1; then
-        jq -r ".${field} // empty" "$file" 2>/dev/null || true
-    elif [ -n "$HOST_PYTHON" ]; then
-        "$HOST_PYTHON" -c "import json, sys; d=json.load(open(sys.argv[1], encoding='utf-8')); val=d.get(sys.argv[2], ''); print(str(val).lower() if isinstance(val, bool) else ('' if val is None else val))" "$file" "$field" 2>/dev/null || true
+    if is_host_readable "$file"; then
+        if [ ! -f "$file" ]; then echo ""; return 0; fi
+        if command -v jq >/dev/null 2>&1; then
+            jq -r ".${field} // empty" "$file" 2>/dev/null || true
+        elif [ -n "$HOST_PYTHON" ]; then
+            "$HOST_PYTHON" -c "import json, sys; d=json.load(open(sys.argv[1], encoding='utf-8')); val=d.get(sys.argv[2], ''); print(str(val).lower() if isinstance(val, bool) else ('' if val is None else val))" "$file" "$field" 2>/dev/null || true
+        fi
+    else
+        run_evidence_python "" "import json, sys; d=json.load(open(sys.argv[1], encoding='utf-8')); val=d.get(sys.argv[2], ''); print(str(val).lower() if isinstance(val, bool) else ('' if val is None else val))" "$file" "$field" 2>/dev/null || true
     fi
 }
 
-# Robust journal timestamp extractor (jq with python fallback)
 get_journal_timestamps() {
     local file="$1"
-    if [ ! -f "$file" ]; then return 0; fi
-    if command -v jq >/dev/null 2>&1; then
-        grep -E '"event_type"[[:space:]]*:[[:space:]]*"MARKET_BAR_RECEIVED"' "$file" 2>/dev/null \
-            | jq -r '.payload.timestamp_utc // .event_time_utc // empty' 2>/dev/null || true
-    elif [ -n "$HOST_PYTHON" ]; then
-        "$HOST_PYTHON" -c "
+    if is_host_readable "$file"; then
+        if [ ! -f "$file" ]; then return 0; fi
+        if command -v jq >/dev/null 2>&1; then
+            grep -E '"event_type"[[:space:]]*:[[:space:]]*"MARKET_BAR_RECEIVED"' "$file" 2>/dev/null \
+                | jq -r '.payload.timestamp_utc // .event_time_utc // empty' 2>/dev/null || true
+        elif [ -n "$HOST_PYTHON" ]; then
+            "$HOST_PYTHON" -c "
 import json, sys
 try:
     with open(sys.argv[1], 'r', encoding='utf-8') as f:
         for line in f:
-            if '\"event_type\"' in line and '\"MARKET_BAR_RECEIVED\"' in line:
+            if '"event_type"' in line and '"MARKET_BAR_RECEIVED"' in line:
                 try:
                     ev = json.loads(line)
                     if ev.get('event_type') == 'MARKET_BAR_RECEIVED':
@@ -106,10 +153,28 @@ try:
                 except Exception: pass
 except Exception: pass
 " "$file" 2>/dev/null || true
-    else
-        grep -E '"event_type"[[:space:]]*:[[:space:]]*"MARKET_BAR_RECEIVED"' "$file" 2>/dev/null \
-            | grep -oE '"timestamp_utc"[[:space:]]*:[[:space:]]*"[^"]+"' | cut -d'"' -f4 || true
+        else
+            grep -E '"event_type"[[:space:]]*:[[:space:]]*"MARKET_BAR_RECEIVED"' "$file" 2>/dev/null \
+                | grep -oE '"timestamp_utc"[[:space:]]*:[[:space:]]*"[^"]+"' | cut -d'"' -f4 || true
+        fi
+        return 0
     fi
+
+    # Host unreadable: query via container
+    run_evidence_python "" '
+import json, sys
+try:
+    with open(sys.argv[1], "r", encoding="utf-8") as f:
+        for line in f:
+            if "event_type" in line and "MARKET_BAR_RECEIVED" in line:
+                try:
+                    ev = json.loads(line)
+                    if ev.get("event_type") == "MARKET_BAR_RECEIVED":
+                        ts = ev.get("payload", {}).get("timestamp_utc") or ev.get("event_time_utc")
+                        if ts: print(ts)
+                except Exception: pass
+except Exception: pass
+' "$file" 2>/dev/null || true
 }
 
 record_check() {
@@ -134,7 +199,13 @@ record_check() {
 # -----------------------------------------------------------------------------
 # 1. Manifest Presence and Sealed Status
 # -----------------------------------------------------------------------------
-if [ -f "$MANIFEST_FILE" ]; then
+MANIFEST_EXISTS=false
+if is_host_readable "$MANIFEST_FILE" && [ -f "$MANIFEST_FILE" ]; then
+    MANIFEST_EXISTS=true
+elif run_evidence_python "" "import os, sys; sys.exit(0 if os.path.isfile(sys.argv[1]) else 1)" "$MANIFEST_FILE" 2>/dev/null; then
+    MANIFEST_EXISTS=true
+fi
+if [ "$MANIFEST_EXISTS" = true ]; then
     SEALED_VAL=$(get_json_field "$MANIFEST_FILE" "sealed")
     GIT_COMMIT=$(get_json_field "$MANIFEST_FILE" "git_commit")
     if [ "$SEALED_VAL" = "true" ]; then
@@ -157,9 +228,40 @@ fi
 # -----------------------------------------------------------------------------
 # 2. Daily Snapshot Artifact Verification (Required for Review Path)
 # -----------------------------------------------------------------------------
-if [ -f "$SNAPSHOT_FILE" ] && [ -s "$SNAPSHOT_FILE" ]; then
+SNAPSHOT_EXISTS=false
+SNAP_COUNT=0
+SNAP_VALID=""
+
+if is_host_readable "$SNAPSHOT_FILE" && [ -f "$SNAPSHOT_FILE" ] && [ -s "$SNAPSHOT_FILE" ]; then
+    SNAPSHOT_EXISTS=true
     SNAP_COUNT=$(wc -l < "$SNAPSHOT_FILE" 2>/dev/null || echo "0")
     SNAP_VALID=$(head -n 1 "$SNAPSHOT_FILE" | grep -o '"snapshot_id": "[^"]*"' | head -n 1 || true)
+else
+    SNAP_DIAG=$(run_evidence_python "" '
+import os, sys
+p = sys.argv[1]
+if not os.path.isfile(p) or os.path.getsize(p) == 0:
+    sys.exit(1)
+count = 0
+valid = ""
+with open(p, "r", encoding="utf-8") as f:
+    for line in f:
+        line = line.strip()
+        if not line: continue
+        count += 1
+        if not valid and "snapshot_id" in line:
+            valid = "VALID"
+print(f"COUNT={count}")
+print(f"VALID={valid}")
+' "$SNAPSHOT_FILE" 2>/dev/null || echo "")
+    if [ -n "$SNAP_DIAG" ]; then
+        SNAPSHOT_EXISTS=true
+        SNAP_COUNT=$(echo "$SNAP_DIAG" | grep "^COUNT=" | cut -d= -f2)
+        SNAP_VALID=$(echo "$SNAP_DIAG" | grep "^VALID=" | cut -d= -f2)
+    fi
+fi
+
+if [ "$SNAPSHOT_EXISTS" = true ]; then
     if [ -n "$SNAP_VALID" ]; then
         record_check "2.1" "Daily snapshot artifact present and valid JSON" "PASS" "${SNAP_COUNT} snapshot(s) found"
     else
@@ -192,13 +294,57 @@ fi
 # -----------------------------------------------------------------------------
 # 4. Bar Count & Quality Analysis (Actual Event: MARKET_BAR_RECEIVED)
 # -----------------------------------------------------------------------------
-if [ -f "$JOURNAL_FILE" ]; then
-    TOTAL_EVENTS=$(wc -l < "$JOURNAL_FILE" 2>/dev/null || echo "0")
-    BAR_EVENTS=$(grep -cE '"event_type"[[:space:]]*:[[:space:]]*"MARKET_BAR_RECEIVED"' "$JOURNAL_FILE" 2>/dev/null || true)
-    BAR_EVENTS=$(echo "$BAR_EVENTS" | tr -d '[:space:]')
-
-    DUPLICATE_TS=$(get_journal_timestamps "$JOURNAL_FILE" | sort | uniq -d | wc -l)
-    DUPLICATE_TS=$(echo "$DUPLICATE_TS" | tr -d '[:space:]')
+JOURNAL_EXISTS=false
+if is_host_readable "$JOURNAL_FILE" && [ -f "$JOURNAL_FILE" ]; then
+    JOURNAL_EXISTS=true
+elif run_evidence_python "" "import os, sys; sys.exit(0 if os.path.isfile(sys.argv[1]) else 1)" "$JOURNAL_FILE" 2>/dev/null; then
+    JOURNAL_EXISTS=true
+fi
+if [ "$JOURNAL_EXISTS" = true ]; then
+    if is_host_readable "$JOURNAL_FILE"; then
+        TOTAL_EVENTS=$(wc -l < "$JOURNAL_FILE" 2>/dev/null || echo "0")
+        BAR_EVENTS=$(grep -cE '"event_type"[[:space:]]*:[[:space:]]*"MARKET_BAR_RECEIVED"' "$JOURNAL_FILE" 2>/dev/null || true)
+        BAR_EVENTS=$(echo "$BAR_EVENTS" | tr -d '[:space:]')
+        DUPLICATE_TS=$(get_journal_timestamps "$JOURNAL_FILE" | sort | uniq -d | wc -l)
+        DUPLICATE_TS=$(echo "$DUPLICATE_TS" | tr -d '[:space:]')
+    else
+        BAR_DIAG=$(run_evidence_python "" '
+import sys, json
+path = sys.argv[1]
+try:
+    total_events = 0
+    bar_events = 0
+    timestamps = []
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line: continue
+            total_events += 1
+            try:
+                ev = json.loads(line)
+                if ev.get("event_type") == "MARKET_BAR_RECEIVED":
+                    bar_events += 1
+                    p = ev.get("payload") or {}
+                    ts = p.get("timestamp_utc") or (p.get("bar") or {}).get("timestamp") or ev.get("event_time_utc")
+                    if ts: timestamps.append(ts)
+            except Exception:
+                if "event_type" in line and "MARKET_BAR_RECEIVED" in line:
+                    bar_events += 1
+    seen = set()
+    dups = set()
+    for t in timestamps:
+        if t in seen: dups.add(t)
+        seen.add(t)
+    print(f"TOTAL_EVENTS={total_events}")
+    print(f"BAR_EVENTS={bar_events}")
+    print(f"DUPLICATE_TS={len(dups)}")
+except Exception:
+    print("STATUS=ERROR")
+' "$JOURNAL_FILE" 2>/dev/null || echo "STATUS=ERROR")
+        TOTAL_EVENTS=$(echo "$BAR_DIAG" | grep "^TOTAL_EVENTS=" | cut -d= -f2 || echo 0)
+        BAR_EVENTS=$(echo "$BAR_DIAG" | grep "^BAR_EVENTS=" | cut -d= -f2 || echo 0)
+        DUPLICATE_TS=$(echo "$BAR_DIAG" | grep "^DUPLICATE_TS=" | cut -d= -f2 || echo 0)
+    fi
 
     if [ "$BAR_EVENTS" -ge 350 ] 2>/dev/null; then
         record_check "4.1" "Bar count conforms to 6-hour M1 window (>=350 bars)" "PASS" "${BAR_EVENTS} bars recorded"
@@ -213,8 +359,7 @@ if [ -f "$JOURNAL_FILE" ]; then
     fi
 
     # Check 4.3: Feed connection stability, recovery audit, and run classification
-    if [ -n "$HOST_PYTHON" ]; then
-        FEED_DIAG_OUTPUT=$("$HOST_PYTHON" -c '
+    DIAG_PY_SCRIPT='
 import json, sys
 
 journal_path = sys.argv[1]
@@ -292,9 +437,12 @@ print(f"CHECK_STATUS={check_status}")
 print(f"CHECK_MSG={check_msg}")
 print(f"RECOVERY_MECHANISM={recovery_mechanism}")
 print(f"DISC_COUNT={disc_count}")
-' "$JOURNAL_FILE" 2>/dev/null || echo "")
+'
+
+    if is_host_readable "$JOURNAL_FILE" && [ -n "$HOST_PYTHON" ]; then
+        FEED_DIAG_OUTPUT=$("$HOST_PYTHON" -c "$DIAG_PY_SCRIPT" "$JOURNAL_FILE" 2>/dev/null || echo "")
     else
-        FEED_DIAG_OUTPUT=""
+        FEED_DIAG_OUTPUT=$(run_evidence_python "" "$DIAG_PY_SCRIPT" "$JOURNAL_FILE" 2>/dev/null || echo "")
     fi
 
     PARSED_RUN_CLASS=""
@@ -339,7 +487,13 @@ fi
 # -----------------------------------------------------------------------------
 # 5. Continuous Duration Verification (>= 21,600s / 6.00 continuous hours)
 # -----------------------------------------------------------------------------
-if [ -f "$MANIFEST_FILE" ]; then
+MANIFEST_EXISTS=false
+if is_host_readable "$MANIFEST_FILE" && [ -f "$MANIFEST_FILE" ]; then
+    MANIFEST_EXISTS=true
+elif run_evidence_python "" "import os, sys; sys.exit(0 if os.path.isfile(sys.argv[1]) else 1)" "$MANIFEST_FILE" 2>/dev/null; then
+    MANIFEST_EXISTS=true
+fi
+if [ "$MANIFEST_EXISTS" = true ]; then
     DURATION_SEC=$(get_json_field "$MANIFEST_FILE" "duration_seconds")
     if [ -z "$DURATION_SEC" ] || [ "$DURATION_SEC" = "null" ] || [ "$DURATION_SEC" = "0" ]; then
         START_ISO=$(get_json_field "$MANIFEST_FILE" "start_time_utc")
@@ -388,9 +542,24 @@ fi
 # -----------------------------------------------------------------------------
 # 7. Security & Order Invariants
 # -----------------------------------------------------------------------------
-if [ -f "$JOURNAL_FILE" ]; then
-    REAL_ORDERS=$(grep -cE '"event_type"[[:space:]]*:[[:space:]]*"ORDER_SUBMITTED"' "$JOURNAL_FILE" 2>/dev/null || true)
-    REAL_ORDERS=$(echo "$REAL_ORDERS" | tr -d '[:space:]')
+if [ "$JOURNAL_EXISTS" = true ]; then
+    if is_host_readable "$JOURNAL_FILE"; then
+        REAL_ORDERS=$(grep -cE '"event_type"[[:space:]]*:[[:space:]]*"ORDER_SUBMITTED"' "$JOURNAL_FILE" 2>/dev/null || true)
+        REAL_ORDERS=$(echo "$REAL_ORDERS" | tr -d '[:space:]')
+    else
+        REAL_ORDERS=$(run_evidence_python "" '
+import sys
+count = 0
+try:
+    with open(sys.argv[1], "r", encoding="utf-8") as f:
+        for line in f:
+            if "ORDER_SUBMITTED" in line: count += 1
+    print(count)
+except Exception:
+    print(0)
+' "$JOURNAL_FILE" 2>/dev/null || echo "0")
+        REAL_ORDERS=$(echo "$REAL_ORDERS" | tr -d '[:space:]')
+    fi
     if [ "$REAL_ORDERS" = "0" ]; then
         record_check "7.1" "Zero real order submissions in journal (NO_REAL_ORDERS=true)" "PASS" "0 orders submitted"
     else

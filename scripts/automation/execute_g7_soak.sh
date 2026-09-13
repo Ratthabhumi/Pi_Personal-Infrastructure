@@ -44,71 +44,299 @@ resolve_host_python() {
     fi
 }
 
+is_host_readable() {
+    local target="$1"
+    if [ "${G7_SIMULATE_HOST_UNREADABLE:-0}" = "1" ]; then
+        return 1
+    fi
+    [ -r "$target" ]
+}
+
+run_evidence_python() {
+    local container_name="${1:-}"
+    local py_code="$2"
+    shift 2
+
+    if [ "${G7_TEST_MODE:-0}" = "1" ]; then
+        if [ "${G7_TEST_CONTAINER_UNREADABLE:-0}" = "1" ]; then
+            return 1
+        fi
+        if [ -n "$container_name" ] && [ "${G7_TEST_DOCKER_EXEC_FAILS:-0}" = "1" ]; then
+            return 1
+        fi
+        local py_bin
+        py_bin=$(resolve_host_python 2>/dev/null || echo "python3")
+        "$py_bin" -c "$py_code" "$@"
+        return $?
+    fi
+
+    # Production execution path: active container exec
+    if [ -n "$container_name" ] && command -v docker >/dev/null 2>&1; then
+        local c_status
+        c_status=$(docker inspect -f '{{.State.Status}}' "$container_name" 2>/dev/null || echo "")
+        if [ "$c_status" = "running" ]; then
+            docker exec "$container_name" python -c "$py_code" "$@"
+            return $?
+        fi
+    fi
+
+    # Post-shutdown or offline read-only container fallback
+    docker run --rm \
+        --user 10001:10001 \
+        --entrypoint python \
+        -v "${STORAGE_ROOT}:${STORAGE_ROOT}:ro" \
+        "${ACASH_IMAGE:-acash:e36-ws10-staging}" \
+        -c "$py_code" "$@"
+}
+
+resolve_active_session() {
+    local container_name="${1:-acash-staging}"
+    local sessions_dir="${2:-${SESSIONS_DIR}}"
+
+    # Test mode hooks
+    if [ "${G7_TEST_MODE:-0}" = "1" ]; then
+        if [ -n "${G7_TEST_RESOLVE_SESSION_FAIL:-}" ]; then
+            echo "[ERROR] Simulated session resolution failure: ${G7_TEST_RESOLVE_SESSION_FAIL}" >&2
+            return 1
+        fi
+        if [ -n "${G7_TEST_SESSION_ID:-}" ]; then
+            echo "${G7_TEST_SESSION_ID}"
+            return 0
+        fi
+    fi
+
+    local c_started=""
+    if [ "${G7_TEST_MODE:-0}" = "1" ]; then
+        c_started="${G7_TEST_CONTAINER_STARTED:-}"
+    elif command -v docker >/dev/null 2>&1; then
+        c_started=$(docker inspect -f '{{.State.StartedAt}}' "$container_name" 2>/dev/null || echo "")
+    fi
+
+    local log_sid=""
+    if [ "${G7_TEST_MODE:-0}" != "1" ] && command -v docker >/dev/null 2>&1; then
+        log_sid=$(docker logs "$container_name" 2>&1 | grep -oE 'E3\.5-[0-9]{8}-[0-9]{6}-[a-f0-9]{6}' | head -n 1 || true)
+    elif [ -n "${G7_TEST_LOG_SID:-}" ]; then
+        log_sid="${G7_TEST_LOG_SID}"
+    fi
+
+    local py_resolver='
+import os, sys, re, json
+from datetime import datetime, timezone
+
+sessions_dir = sys.argv[1]
+started_str = sys.argv[2] if len(sys.argv) > 2 else ""
+log_sid = sys.argv[3] if len(sys.argv) > 3 else ""
+
+sid_regex = re.compile(r"^E3\.5-[0-9]{8}-[0-9]{6}-[a-f0-9]{6}$")
+
+if not os.path.isdir(sessions_dir):
+    sys.exit(1)
+
+start_epoch = None
+if started_str:
+    try:
+        iso_clean = started_str.replace("Z", "+00:00")
+        dt = datetime.fromisoformat(iso_clean)
+        start_epoch = dt.timestamp()
+    except Exception:
+        pass
+
+candidates = []
+try:
+    entries = sorted(os.listdir(sessions_dir))
+except Exception:
+    sys.exit(1)
+
+for fname in entries:
+    if not fname.endswith(".journal.jsonl"):
+        continue
+    sid = fname[:-len(".journal.jsonl")]
+    if not sid_regex.match(sid):
+        continue
+
+    fpath = os.path.join(sessions_dir, fname)
+    try:
+        mtime = os.path.getmtime(fpath)
+        with open(fpath, "r", encoding="utf-8") as f:
+            first_line = f.readline().strip()
+        if not first_line:
+            continue
+        ev = json.loads(first_line)
+        if ev.get("event_type") != "SESSION_STARTED":
+            continue
+        if ev.get("session_id") != sid:
+            continue
+
+        ev_time = ev.get("event_time_utc") or ev.get("recorded_at_utc")
+        ev_epoch = None
+        if ev_time:
+            try:
+                dt = datetime.fromisoformat(ev_time.replace("Z", "+00:00"))
+                ev_epoch = dt.timestamp()
+            except Exception:
+                pass
+
+        if start_epoch is not None:
+            if mtime < (start_epoch - 30):
+                continue
+            if ev_epoch is not None and abs(ev_epoch - start_epoch) > 300:
+                continue
+
+        candidates.append(sid)
+    except Exception:
+        continue
+
+if log_sid and sid_regex.match(log_sid):
+    if log_sid in candidates:
+        print(log_sid)
+        sys.exit(0)
+    elif not candidates:
+        log_fpath = os.path.join(sessions_dir, f"{log_sid}.journal.jsonl")
+        if os.path.isfile(log_fpath):
+            try:
+                with open(log_fpath, "r", encoding="utf-8") as f:
+                    ev = json.loads(f.readline().strip())
+                if ev.get("event_type") == "SESSION_STARTED" and ev.get("session_id") == log_sid:
+                    print(log_sid)
+                    sys.exit(0)
+            except Exception:
+                pass
+
+if len(candidates) == 1:
+    print(candidates[0])
+    sys.exit(0)
+elif len(candidates) > 1:
+    sys.stderr.write(f"[FATAL] Ambiguous active sessions found matching container startup: {candidates}\n")
+    sys.exit(2)
+else:
+    sys.stderr.write("[FATAL] No valid active session candidate found matching container startup\n")
+    sys.exit(1)
+'
+
+    local resolved_sid
+    resolved_sid=$(run_evidence_python "$container_name" "$py_resolver" "$sessions_dir" "$c_started" "$log_sid" 2>/dev/null || true)
+
+    if [ -n "$resolved_sid" ] && echo "$resolved_sid" | grep -qE '^E3\.5-[0-9]{8}-[0-9]{6}-[a-f0-9]{6}$'; then
+        echo "$resolved_sid"
+        return 0
+    else
+        return 1
+    fi
+}
+
 get_journal_timestamps() {
     local jfile="$1"
-    if [ ! -f "$jfile" ]; then return 0; fi
-    local py_bin
-    py_bin=$(resolve_host_python 2>/dev/null || true)
+    local container_name="${2:-}"
 
-    if command -v "$py_bin" >/dev/null 2>&1; then
-        "$py_bin" -c "
+    if is_host_readable "$jfile"; then
+        local py_bin
+        py_bin=$(resolve_host_python 2>/dev/null || true)
+        if [ -n "$py_bin" ]; then
+            "$py_bin" -c "
 import sys, json
 try:
     with open(sys.argv[1], 'r', encoding='utf-8') as f:
         for line in f:
             line = line.strip()
-            if not line:
-                continue
-            try:
-                ev = json.loads(line)
-            except Exception:
-                continue
+            if not line: continue
+            try: ev = json.loads(line)
+            except Exception: continue
             if ev.get('event_type') == 'MARKET_BAR_RECEIVED':
                 p = ev.get('payload') or {}
                 ts = p.get('timestamp_utc') or (p.get('bar') or {}).get('timestamp') or ev.get('event_time_utc')
-                if ts:
-                    print(ts)
-except Exception:
-    pass
+                if ts: print(ts)
+except Exception: pass
 " "$jfile" 2>/dev/null || true
-    elif command -v jq >/dev/null 2>&1; then
-        grep -E '"event_type"[[:space:]]*:[[:space:]]*"MARKET_BAR_RECEIVED"' "$jfile" 2>/dev/null \
-            | jq -r '.payload.timestamp_utc // .payload.bar.timestamp // .event_time_utc // empty' 2>/dev/null || true
-    else
-        grep -E '"event_type"[[:space:]]*:[[:space:]]*"MARKET_BAR_RECEIVED"' "$jfile" 2>/dev/null \
-            | grep -oE '"timestamp_utc"[[:space:]]*:[[:space:]]*"[^"]+"' | cut -d'"' -f4 || true
+            return 0
+        elif command -v jq >/dev/null 2>&1; then
+            grep -E '"event_type"[[:space:]]*:[[:space:]]*"MARKET_BAR_RECEIVED"' "$jfile" 2>/dev/null \
+                | jq -r '.payload.timestamp_utc // .payload.bar.timestamp // .event_time_utc // empty' 2>/dev/null || true
+            return 0
+        else
+            grep -E '"event_type"[[:space:]]*:[[:space:]]*"MARKET_BAR_RECEIVED"' "$jfile" 2>/dev/null \
+                | grep -oE '"timestamp_utc"[[:space:]]*:[[:space:]]*"[^"]+"' | cut -d'"' -f4 || true
+            return 0
+        fi
     fi
+
+    # Host unreadable: query via container
+    run_evidence_python "$container_name" '
+import sys, json
+path = sys.argv[1]
+try:
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line: continue
+            try: ev = json.loads(line)
+            except Exception: continue
+            if ev.get("event_type") == "MARKET_BAR_RECEIVED":
+                p = ev.get("payload") or {}
+                ts = p.get("timestamp_utc") or (p.get("bar") or {}).get("timestamp") or ev.get("event_time_utc")
+                if ts: print(ts)
+except Exception: pass
+' "$jfile" 2>/dev/null || true
 }
 
 count_journal_bars() {
     local jfile="$1"
-    if [ ! -f "$jfile" ]; then echo "0"; return 0; fi
-    local py_bin
-    py_bin=$(resolve_host_python 2>/dev/null || true)
+    local container_name="${2:-}"
 
-    if command -v "$py_bin" >/dev/null 2>&1; then
-        "$py_bin" -c "
+    if is_host_readable "$jfile"; then
+        local py_bin
+        py_bin=$(resolve_host_python 2>/dev/null || true)
+        if [ -n "$py_bin" ]; then
+            "$py_bin" -c "
 import sys, json
 count = 0
 try:
     with open(sys.argv[1], 'r', encoding='utf-8') as f:
         for line in f:
             line = line.strip()
-            if not line:
-                continue
+            if not line: continue
             try:
                 ev = json.loads(line)
-                if ev.get('event_type') == 'MARKET_BAR_RECEIVED':
-                    count += 1
+                if ev.get('event_type') == 'MARKET_BAR_RECEIVED': count += 1
             except Exception:
-                if '"event_type"' in line and '"MARKET_BAR_RECEIVED"' in line:
-                    count += 1
+                if '"event_type"' in line and '"MARKET_BAR_RECEIVED"' in line: count += 1
     print(count)
 except Exception:
     print(0)
 " "$jfile" 2>/dev/null || grep -cE '"event_type"[[:space:]]*:[[:space:]]*"MARKET_BAR_RECEIVED"' "$jfile" 2>/dev/null || echo "0"
+            return 0
+        else
+            grep -cE '"event_type"[[:space:]]*:[[:space:]]*"MARKET_BAR_RECEIVED"' "$jfile" 2>/dev/null || echo "0"
+            return 0
+        fi
+    fi
+
+    # Host unreadable: Query through permission-safe container path
+    local bar_output
+    bar_output=$(run_evidence_python "$container_name" '
+import sys, json
+path = sys.argv[1]
+count = 0
+try:
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line: continue
+            try:
+                ev = json.loads(line)
+                if ev.get("event_type") == "MARKET_BAR_RECEIVED": count += 1
+            except Exception:
+                if "event_type" in line and "MARKET_BAR_RECEIVED" in line: count += 1
+    print(count)
+except Exception:
+    print("UNAVAILABLE")
+' "$jfile" 2>/dev/null || echo "UNAVAILABLE")
+
+    if [ "$bar_output" = "UNAVAILABLE" ] || [ -z "$bar_output" ]; then
+        echo "UNAVAILABLE"
+        return 1
     else
-        grep -cE '"event_type"[[:space:]]*:[[:space:]]*"MARKET_BAR_RECEIVED"' "$jfile" 2>/dev/null || echo "0"
+        echo "$bar_output"
+        return 0
     fi
 }
 
@@ -117,7 +345,7 @@ check_feed_disconnected() {
     local container_name="${2:-acash-staging}"
 
     # Priority 1: Structured Session Journal (Source of Truth)
-    if [ -n "$jfile" ] && [ -f "$jfile" ]; then
+    if is_host_readable "$jfile"; then
         local last_feed
         last_feed=$(grep -oE '"event_type"[[:space:]]*:[[:space:]]*"FEED_(CONNECTED|DISCONNECTED)"' "$jfile" 2>/dev/null | tail -n 1 || true)
         if echo "$last_feed" | grep -q "FEED_DISCONNECTED"; then
@@ -125,10 +353,40 @@ check_feed_disconnected() {
         elif echo "$last_feed" | grep -q "FEED_CONNECTED"; then
             return 1 # Healthy: connected or recovered
         fi
+    else
+        local feed_status
+        feed_status=$(run_evidence_python "$container_name" '
+import sys, json
+path = sys.argv[1]
+last_feed = None
+try:
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line: continue
+            try:
+                ev = json.loads(line)
+                et = ev.get("event_type")
+                if et in ("FEED_CONNECTED", "FEED_DISCONNECTED"):
+                    last_feed = et
+            except Exception: pass
+    print(last_feed or "NONE")
+except Exception:
+    print("UNAVAILABLE")
+' "$jfile" 2>/dev/null || echo "UNAVAILABLE")
+
+        if [ "$feed_status" = "FEED_DISCONNECTED" ]; then
+            return 0 # Fatal: disconnect detected in journal
+        elif [ "$feed_status" = "FEED_CONNECTED" ]; then
+            return 1 # Healthy
+        elif [ "$feed_status" = "UNAVAILABLE" ]; then
+            echo -e "\n${RED}[FATAL] Authoritative session journal is unreadable! Cannot verify feed health.${NC}" >&2
+            return 0 # Fail closed
+        fi
     fi
 
-    # Priority 2: Fallback to Container Logs (when journal is missing or contains no feed events)
-    if command -v docker >/dev/null 2>&1; then
+    # Priority 2: Fallback to Container Logs ONLY when journal has no feed events yet
+    if [ "${G7_TEST_MODE:-0}" != "1" ] && command -v docker >/dev/null 2>&1; then
         if docker logs "$container_name" 2>&1 | grep -q "FEED_DISCONNECTED"; then
             local last_docker_feed
             last_docker_feed=$(docker logs "$container_name" 2>&1 | grep -oE "FEED_(CONNECTED|DISCONNECTED)" | tail -n 1 || true)
@@ -143,7 +401,6 @@ check_feed_disconnected() {
 
     return 1
 }
-
 
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     SOAK_DURATION_SECONDS=21600 # 6.00 hours
@@ -230,10 +487,16 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     fi
 
     # Identify the session ID started
-    SESSION_ID=$(docker logs acash-staging 2>&1 | grep -o 'E3\.5-[0-9]\{8\}-[0-9]\{6\}-[a-f0-9]\{6\}' | head -n 1 || true)
-    if [ -z "$SESSION_ID" ]; then
-        # Fallback to newest journal in sessions dir
-        SESSION_ID=$(ls -t "${SESSIONS_DIR}"/*.journal.jsonl 2>/dev/null | head -n 1 | xargs -r -n 1 basename | sed 's/\.journal\.jsonl//' || echo "unknown")
+    SESSION_ID=$(resolve_active_session "acash-staging" "$SESSIONS_DIR") || {
+        echo -e "\n${RED}[FATAL] Unable to bind G7 harness to exactly one authoritative active session.${NC}" >&2
+        echo -e "${RED}Canonical soak monitoring will not start.${NC}" >&2
+        exit 1
+    }
+
+    if [ -z "$SESSION_ID" ] || [ "$SESSION_ID" = "unknown" ] || ! echo "$SESSION_ID" | grep -qE '^E3\.5-[0-9]{8}-[0-9]{6}-[a-f0-9]{6}$'; then
+        echo -e "\n${RED}[FATAL] Unable to bind G7 harness to exactly one authoritative active session (Invalid or unresolved: '${SESSION_ID}').${NC}" >&2
+        echo -e "${RED}Canonical soak monitoring will not start.${NC}" >&2
+        exit 1
     fi
     echo "Active Soak Session ID: ${SESSION_ID}"
 
@@ -272,14 +535,28 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
         # Check 4: Check if feed disconnected (structured session journal with container logs fallback)
         if check_feed_disconnected "${SESSIONS_DIR}/${SESSION_ID}.journal.jsonl" "acash-staging"; then
             echo -e "\n${RED}[FATAL] Feed disconnected anomaly detected (terminal FEED_DISCONNECTED without recovery)!${NC}"
-            local jfile="${SESSIONS_DIR}/${SESSION_ID}.journal.jsonl"
-            if [ -f "$jfile" ]; then
-                local last_disc
-                last_disc=$(grep -E '"event_type"[[:space:]]*:[[:space:]]*"FEED_DISCONNECTED"' "$jfile" 2>/dev/null | tail -n 1 || true)
-                if [ -n "$last_disc" ]; then
-                    echo "Diagnostic Telemetry from Session Journal:"
-                    echo "$last_disc" | grep -oE '"(error_class|category|operation|reason|last_bar_utc|timeout_seconds|status_code)"[[:space:]]*:[[:space:]]*[^,}]+' || true
-                fi
+            local_jfile="${SESSIONS_DIR}/${SESSION_ID}.journal.jsonl"
+            last_disc=""
+            if is_host_readable "$local_jfile" && [ -f "$local_jfile" ]; then
+                last_disc=$(grep -E '"event_type"[[:space:]]*:[[:space:]]*"FEED_DISCONNECTED"' "$local_jfile" 2>/dev/null | tail -n 1 || true)
+            else
+                last_disc=$(run_evidence_python "acash-staging" '
+import sys
+path = sys.argv[1]
+last_line = ""
+try:
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            if ""event_type"" in line and ""FEED_DISCONNECTED"" in line:
+                last_line = line.strip()
+    print(last_line)
+except Exception:
+    pass
+' "$local_jfile" 2>/dev/null || echo "")
+            fi
+            if [ -n "$last_disc" ]; then
+                echo "Diagnostic Telemetry from Session Journal:"
+                echo "$last_disc" | grep -oE '"(error_class|category|operation|reason|last_bar_utc|timeout_seconds|status_code)"[[:space:]]*:[[:space:]]*[^,}]+' || true
             fi
             exit 4
         fi
@@ -290,7 +567,7 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
             REMAIN_FMT=$(printf '%02dh:%02dm:%02ds' $((REMAINING_SEC/3600)) $(( (REMAINING_SEC%3600)/60 )) $((REMAINING_SEC%60)))
 
             # Count bars recorded in journal if available
-            BAR_COUNT=$(count_journal_bars "${SESSIONS_DIR}/${SESSION_ID}.journal.jsonl")
+            BAR_COUNT=$(count_journal_bars "${SESSIONS_DIR}/${SESSION_ID}.journal.jsonl" "acash-staging")
 
             echo -e "[ ${CYAN}SOAK PROGRESS${NC} ] Elapsed: ${ELAPSED_FMT} | Remaining: ${REMAIN_FMT} | Bars Ingested: ${BAR_COUNT} | Mem: ${MEM_RAW} | Restarts: ${RESTARTS}"
         fi
@@ -308,18 +585,33 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     echo "Sending SIGTERM to acash-staging (grace window: 15s)..."
     docker stop --time 15 acash-staging
 
-    # Verify manifest and snapshot files exist
+    # Verify manifest and snapshot files exist (permission-safe)
     MANIFEST_FILE="${SESSIONS_DIR}/${SESSION_ID}.manifest.json"
     JOURNAL_FILE="${SESSIONS_DIR}/${SESSION_ID}.journal.jsonl"
     SNAPSHOT_FILE="${SESSIONS_DIR}/${SESSION_ID}.snapshots.jsonl"
 
-    if [ -f "$MANIFEST_FILE" ]; then
+    MANIFEST_OK=false
+    SNAPSHOT_OK=false
+
+    if is_host_readable "$MANIFEST_FILE" && [ -f "$MANIFEST_FILE" ]; then
+        MANIFEST_OK=true
+    elif run_evidence_python "" "import os, sys; sys.exit(0 if os.path.isfile(sys.argv[1]) else 1)" "$MANIFEST_FILE" 2>/dev/null; then
+        MANIFEST_OK=true
+    fi
+
+    if is_host_readable "$SNAPSHOT_FILE" && [ -f "$SNAPSHOT_FILE" ] && [ -s "$SNAPSHOT_FILE" ]; then
+        SNAPSHOT_OK=true
+    elif run_evidence_python "" "import os, sys; p=sys.argv[1]; sys.exit(0 if os.path.isfile(p) and os.path.getsize(p) > 0 else 1)" "$SNAPSHOT_FILE" 2>/dev/null; then
+        SNAPSHOT_OK=true
+    fi
+
+    if [ "$MANIFEST_OK" = true ]; then
         echo -e "[ ${GREEN}PASS${NC} ] Session manifest sealed: ${MANIFEST_FILE}"
     else
         echo -e "[ ${RED}FAIL${NC} ] Session manifest missing or unsealed!"
     fi
 
-    if [ -f "$SNAPSHOT_FILE" ] && [ -s "$SNAPSHOT_FILE" ]; then
+    if [ "$SNAPSHOT_OK" = true ]; then
         echo -e "[ ${GREEN}PASS${NC} ] Session snapshot captured: ${SNAPSHOT_FILE}"
     else
         echo -e "[ ${RED}FAIL${NC} ] Session snapshot missing or empty!"
@@ -328,22 +620,24 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     # Run journal integrity audit
     echo -e "\n--- Running Journal SHA-256 Integrity Verification ---"
     INTEGRITY_RESULT=$(docker run --rm \
-        -v "${STORAGE_ROOT}:${STORAGE_ROOT}" \
-        acash:e36-ws10-staging \
+        -v "${STORAGE_ROOT}:${STORAGE_ROOT}:ro" \
+        "${ACASH_IMAGE:-acash:e36-ws10-staging}" \
         integrity --session-id "$SESSION_ID" --storage "$SESSIONS_DIR" 2>&1 || true)
     echo "$INTEGRITY_RESULT"
 
     # Run review package audit
     echo -e "\n--- Running Audit Review Package Verification ---"
     REVIEW_RESULT=$(docker run --rm \
-        -v "${STORAGE_ROOT}:${STORAGE_ROOT}" \
-        acash:e36-ws10-staging \
+        -v "${STORAGE_ROOT}:${STORAGE_ROOT}:ro" \
+        "${ACASH_IMAGE:-acash:e36-ws10-staging}" \
         review --session-id "$SESSION_ID" --storage "$SESSIONS_DIR" 2>&1 || true)
     echo "$REVIEW_RESULT"
 
-    # Bar count analysis
-    FINAL_BARS=$(count_journal_bars "$JOURNAL_FILE")
-    DUPLICATE_BARS=$(get_journal_timestamps "$JOURNAL_FILE" | sort | uniq -d | wc -l || echo "0")
+    # Bar count analysis (permission-safe via read-only container)
+    FINAL_BARS=$(count_journal_bars "$JOURNAL_FILE" "")
+    if [ "$FINAL_BARS" = "UNAVAILABLE" ]; then FINAL_BARS=0; fi
+
+    DUPLICATE_BARS=$(get_journal_timestamps "$JOURNAL_FILE" "" | sort | uniq -d | wc -l || echo "0")
 
     echo -e "\n${BLUE}======================================================================${NC}"
     echo -e "${BLUE}               GATE G7 (6-HOUR M1 SOAK) FINAL REPORT                 ${NC}"
@@ -357,7 +651,7 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     echo "Security Posture  : Preserved (UID 10001:10001, no published ports, no-new-privileges)"
     echo "Orders Placed     : ZERO (NO_REAL_ORDERS=true, Capital=$0.00)"
     echo "----------------------------------------------------------------------"
-    if [ "$FINAL_BARS" -ge 350 ] && [ "$DUPLICATE_BARS" -eq 0 ] && echo "$INTEGRITY_RESULT" | grep -q '"status": "PASS"' && [ -s "$SNAPSHOT_FILE" ]; then
+    if [ "$FINAL_BARS" -ge 350 ] && [ "$DUPLICATE_BARS" -eq 0 ] && echo "$INTEGRITY_RESULT" | grep -q '"status": "PASS"' && [ "$SNAPSHOT_OK" = true ]; then
         echo -e "${GREEN}>>> GATE G7 / STAGE S11 RESULT: PASS <<<${NC}"
         G7_STATUS="PASS"
     else

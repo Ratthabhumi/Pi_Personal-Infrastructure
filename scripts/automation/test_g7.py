@@ -672,6 +672,176 @@ class TestG7Suite(unittest.TestCase):
         self.assertIn("Neither python3 nor python executable found on host", proc_fail.stdout)
 
 
+
+    # -------------------------------------------------------------------------
+    # PERMISSION-SAFE EVIDENCE ACCESS & SESSION RESOLUTION REGRESSION TESTS
+    # -------------------------------------------------------------------------
+
+    def test_active_session_resolved_from_container_when_host_unreadable(self):
+        """Test A: Active session resolved from container when host sessions access is unreadable."""
+        self._create_synthetic_evidence(bar_count=10)
+        custom_env = self.test_env.copy()
+        custom_env["G7_SIMULATE_HOST_UNREADABLE"] = "1"
+        custom_env["G7_TEST_CONTAINER_ID"] = "mock_acash_soak_container_123"
+        custom_env["G7_TEST_CONTAINER_STARTED"] = "2026-09-12T06:00:00Z"
+
+        EXECUTE_SCRIPT = REPO_ROOT / "scripts" / "automation" / "execute_g7_soak.sh"
+        cmd = [
+            "-c",
+            f". {str(EXECUTE_SCRIPT).replace('\\', '/')} >/dev/null 2>&1 || true; resolve_active_session acash-staging {str(self.sessions_dir).replace('\\', '/')}"
+        ]
+        proc = run_bash(cmd, env=custom_env)
+        self.assertEqual(proc.returncode, 0, f"Resolver failed: {proc.stdout}\n{proc.stderr}")
+        resolved_sid = proc.stdout.strip()
+        self.assertEqual(resolved_sid, self.session_id)
+        self.assertNotEqual(resolved_sid, "unknown")
+
+    def test_unresolved_session_fails_closed(self):
+        """Test B: Unresolved session fails closed before entering timed monitoring loop."""
+        # Sessions directory is empty (no valid journal exists)
+        custom_env = self.test_env.copy()
+        custom_env["G7_SIMULATE_HOST_UNREADABLE"] = "1"
+        custom_env["G7_TEST_CONTAINER_ID"] = "mock_container_1"
+        custom_env["G7_TEST_CONTAINER_STARTED"] = "2026-09-12T06:00:00Z"
+
+        EXECUTE_SCRIPT = REPO_ROOT / "scripts" / "automation" / "execute_g7_soak.sh"
+        cmd = [
+            "-c",
+            f". {str(EXECUTE_SCRIPT).replace('\\', '/')} >/dev/null 2>&1 || true; resolve_active_session acash-staging {str(self.sessions_dir).replace('\\', '/')}"
+        ]
+        proc = run_bash(cmd, env=custom_env)
+        self.assertNotEqual(proc.returncode, 0, "Resolver must exit non-zero when no session matches container startup!")
+        self.assertNotEqual(proc.stdout.strip(), "unknown")
+
+        # Test Step 2 fatal exit
+        cmd_step2 = [
+            "-c",
+            f". {str(EXECUTE_SCRIPT).replace('\\', '/')} >/dev/null 2>&1 || true; "
+            f"SESSION_ID=$(resolve_active_session acash-staging {str(self.sessions_dir).replace('\\', '/')}) || {{ "
+            f"echo '[FATAL] Unable to bind G7 harness to exactly one authoritative active session.'; "
+            f"echo 'Canonical soak monitoring will not start.'; exit 1; }}; "
+            f"echo 'MONITORING_STARTED'"
+        ]
+        proc_step2 = run_bash(cmd_step2, env=custom_env)
+        self.assertNotEqual(proc_step2.returncode, 0, "Harness must abort before soak monitoring starts!")
+        self.assertIn("Unable to bind G7 harness to exactly one authoritative active session", proc_step2.stdout)
+        self.assertIn("Canonical soak monitoring will not start", proc_step2.stdout)
+        self.assertNotIn("MONITORING_STARTED", proc_step2.stdout)
+
+    def test_ambiguous_active_session_fails_closed(self):
+        """Test C: Ambiguous active session candidates fail closed (no arbitrary newest selection)."""
+        # Create two separate valid journals with matching startup window
+        start_time = datetime(2026, 9, 12, 6, 0, 0, tzinfo=timezone.utc)
+        for sid in ["E3.5-20260912-060000-aaaaaa", "E3.5-20260912-060000-bbbbbb"]:
+            jfile = self.sessions_dir / f"{sid}.journal.jsonl"
+            with open(jfile, "w", encoding="utf-8") as f:
+                genesis = {
+                    "event_id": f"00000000-0000-0000-0000-{sid[-6:]}000001",
+                    "session_id": sid,
+                    "sequence": 0,
+                    "event_type": "SESSION_STARTED",
+                    "layer": "SYSTEM",
+                    "event_time_utc": start_time.isoformat(),
+                    "recorded_at_utc": start_time.isoformat(),
+                    "payload": {"mode": "PAPER_ONLY", "initial_cash": "0.00"},
+                    "previous_event_hash": "0" * 64,
+                    "event_hash": "a" * 64,
+                }
+                f.write(json.dumps(genesis) + "\n")
+
+        custom_env = self.test_env.copy()
+        custom_env["G7_SIMULATE_HOST_UNREADABLE"] = "1"
+        custom_env["G7_TEST_CONTAINER_STARTED"] = "2026-09-12T06:00:00Z"
+
+        EXECUTE_SCRIPT = REPO_ROOT / "scripts" / "automation" / "execute_g7_soak.sh"
+        cmd = [
+            "-c",
+            f". {str(EXECUTE_SCRIPT).replace('\\', '/')} >/dev/null 2>&1 || true; resolve_active_session acash-staging {str(self.sessions_dir).replace('\\', '/')}"
+        ]
+        proc = run_bash(cmd, env=custom_env)
+        self.assertNotEqual(proc.returncode, 0, "Ambiguous session candidates must fail closed!")
+        self.assertNotIn("aaaaaa", proc.stdout)
+        self.assertNotIn("bbbbbb", proc.stdout)
+
+    def test_status_uses_container_side_evidence(self):
+        """Test D: status dashboard uses container-side evidence when host evidence is unreadable."""
+        self._create_synthetic_evidence(bar_count=360)
+        custom_env = self.test_env.copy()
+        custom_env["G7_SIMULATE_HOST_UNREADABLE"] = "1"
+        custom_env["G7_TEST_CONTAINER_ID"] = "mock_container_status_1"
+        custom_env["G7_TEST_CONTAINER_STARTED"] = "2026-09-12T06:00:00Z"
+
+        proc = run_bash([G7_SCRIPT, "status"], env=custom_env)
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn(f"Session ID       : {self.session_id}", proc.stdout)
+        self.assertIn("Bars Ingested    : 360", proc.stdout)
+        self.assertIn("Feed Disconnects : 0", proc.stdout)
+        self.assertNotIn("unknown", proc.stdout)
+        self.assertNotIn("Bars Ingested    : 0", proc.stdout)
+
+    def test_status_distinguishes_unavailable_from_zero(self):
+        """Test E: status reports UNAVAILABLE when evidence cannot be read, not a fabricated zero."""
+        self._create_synthetic_evidence(bar_count=360)
+        custom_env = self.test_env.copy()
+        custom_env["G7_SIMULATE_HOST_UNREADABLE"] = "1"
+        custom_env["G7_TEST_CONTAINER_UNREADABLE"] = "1"
+        custom_env["G7_TEST_CONTAINER_ID"] = "mock_container_status_2"
+        custom_env["G7_TEST_CONTAINER_STARTED"] = "2026-09-12T06:00:00Z"
+
+        proc = run_bash([G7_SCRIPT, "status"], env=custom_env)
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("UNAVAILABLE", proc.stdout)
+        self.assertNotIn("Bars Ingested    : 0", proc.stdout)
+        self.assertNotIn("Feed Disconnects : 0", proc.stdout)
+
+    def test_disconnect_detection_works_when_host_unreadable(self):
+        """Test F: Disconnect detection in journal still works when host access is unreadable."""
+        now = datetime.now(timezone.utc)
+        feed_evs = [
+            ("FEED_CONNECTED", now - timedelta(hours=5), {"provider": "binance_public_klines"}),
+            ("FEED_DISCONNECTED", now - timedelta(minutes=30), {"error_class": "ReadTimeout", "category": "TIMEOUT"}),
+        ]
+        self._create_synthetic_evidence(bar_count=330, compact_json=True, feed_events=feed_evs)
+
+        custom_env = self.test_env.copy()
+        custom_env["G7_SIMULATE_HOST_UNREADABLE"] = "1"
+
+        EXECUTE_SCRIPT = REPO_ROOT / "scripts" / "automation" / "execute_g7_soak.sh"
+        cmd = [
+            "-c",
+            f". {str(EXECUTE_SCRIPT).replace('\\', '/')} >/dev/null 2>&1 || true; check_feed_disconnected {str(self.journal_file).replace('\\', '/')} acash-staging"
+        ]
+        proc = run_bash(cmd, env=custom_env)
+        # check_feed_disconnected returns 0 when terminal disconnect is detected
+        self.assertEqual(proc.returncode, 0, "Terminal FEED_DISCONNECTED must return 0 (fatal) through container query!")
+
+    def test_post_shutdown_verification_works_through_container(self):
+        """Test G: Post-shutdown verification works through read-only container when host cannot read evidence."""
+        self._create_synthetic_evidence(bar_count=360)
+        custom_env = self.test_env.copy()
+        custom_env["G7_SIMULATE_HOST_UNREADABLE"] = "1"
+
+        proc = run_bash([VERIFY_SCRIPT, self.session_id], env=custom_env)
+        self.assertEqual(proc.returncode, 0, f"Verifier failed through container: {proc.stdout}\n{proc.stderr}")
+        self.assertIn("1.1: Manifest sealed status verified", proc.stdout)
+        self.assertIn("2.1: Daily snapshot artifact present and valid JSON", proc.stdout)
+        self.assertIn("4.1: Bar count conforms to 6-hour M1 window", proc.stdout)
+        self.assertIn("360 bars recorded", proc.stdout)
+        self.assertIn("4.3: Feed connection stability & recovery", proc.stdout)
+        self.assertIn("RUN CLASS           = CONTINUOUS", proc.stdout)
+        self.assertIn("GATE G7 ACCEPTANCE CRITERIA: PASS", proc.stdout)
+
+    def test_genuinely_missing_evidence_fails_closed(self):
+        """Test H: Genuinely missing or unreadable evidence fails closed (no false PASS)."""
+        custom_env = self.test_env.copy()
+        custom_env["G7_SIMULATE_HOST_UNREADABLE"] = "1"
+        custom_env["G7_TEST_CONTAINER_UNREADABLE"] = "1"
+
+        proc = run_bash([VERIFY_SCRIPT, self.session_id], env=custom_env)
+        self.assertNotEqual(proc.returncode, 0, "Missing evidence must fail closed!")
+        self.assertIn("GATE G7 ACCEPTANCE CRITERIA: FAIL", proc.stdout)
+        self.assertNotIn("GATE G7 ACCEPTANCE CRITERIA: PASS", proc.stdout)
+
 if __name__ == "__main__":
     unittest.main()
 

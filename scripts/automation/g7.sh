@@ -72,32 +72,217 @@ resolve_host_python() {
 
 HOST_PYTHON=$(resolve_host_python 2>/dev/null || true)
 
-# Robust JSON field extractor (jq with python fallback)
-get_json_field() {
-    local file="$1"
-    local field="$2"
-    if [ ! -f "$file" ]; then echo ""; return 0; fi
-    if command -v jq >/dev/null 2>&1; then
-        jq -r ".${field} // empty" "$file" 2>/dev/null || true
-    elif [ -n "$HOST_PYTHON" ]; then
-        "$HOST_PYTHON" -c "import json, sys; d=json.load(open(sys.argv[1], encoding='utf-8')); val=d.get(sys.argv[2], ''); print('' if val is None else val)" "$file" "$field" 2>/dev/null || true
+is_host_readable() {
+    local target="$1"
+    if [ "${G7_SIMULATE_HOST_UNREADABLE:-0}" = "1" ]; then
+        return 1
+    fi
+    [ -r "$target" ]
+}
+
+run_evidence_python() {
+    local container_name="${1:-}"
+    local py_code="$2"
+    shift 2
+
+    if [ "${G7_TEST_MODE:-0}" = "1" ]; then
+        if [ "${G7_TEST_CONTAINER_UNREADABLE:-0}" = "1" ]; then
+            return 1
+        fi
+        if [ -n "$container_name" ] && [ "${G7_TEST_DOCKER_EXEC_FAILS:-0}" = "1" ]; then
+            return 1
+        fi
+        local py_bin
+        py_bin=$(resolve_host_python 2>/dev/null || echo "python3")
+        "$py_bin" -c "$py_code" "$@"
+        return $?
+    fi
+
+    # Production execution path: active container exec
+    if [ -n "$container_name" ] && command -v docker >/dev/null 2>&1; then
+        local c_status
+        c_status=$(docker inspect -f '{{.State.Status}}' "$container_name" 2>/dev/null || echo "")
+        if [ "$c_status" = "running" ]; then
+            docker exec "$container_name" python -c "$py_code" "$@"
+            return $?
+        fi
+    fi
+
+    # Post-shutdown or offline read-only container fallback
+    docker run --rm \
+        --user 10001:10001 \
+        --entrypoint python \
+        -v "${STORAGE_ROOT}:${STORAGE_ROOT}:ro" \
+        "${ACASH_IMAGE:-acash:e36-ws10-staging}" \
+        -c "$py_code" "$@"
+}
+
+resolve_active_session() {
+    local container_name="${1:-acash-staging}"
+    local sessions_dir="${2:-${SESSIONS_DIR}}"
+
+    # Test mode hooks
+    if [ "${G7_TEST_MODE:-0}" = "1" ]; then
+        if [ -n "${G7_TEST_RESOLVE_SESSION_FAIL:-}" ]; then
+            echo "[ERROR] Simulated session resolution failure: ${G7_TEST_RESOLVE_SESSION_FAIL}" >&2
+            return 1
+        fi
+        if [ -n "${G7_TEST_SESSION_ID:-}" ]; then
+            echo "${G7_TEST_SESSION_ID}"
+            return 0
+        fi
+    fi
+
+    local c_started=""
+    if [ "${G7_TEST_MODE:-0}" = "1" ]; then
+        c_started="${G7_TEST_CONTAINER_STARTED:-}"
+    elif command -v docker >/dev/null 2>&1; then
+        c_started=$(docker inspect -f '{{.State.StartedAt}}' "$container_name" 2>/dev/null || echo "")
+    fi
+
+    local log_sid=""
+    if [ "${G7_TEST_MODE:-0}" != "1" ] && command -v docker >/dev/null 2>&1; then
+        log_sid=$(docker logs "$container_name" 2>&1 | grep -oE 'E3\.5-[0-9]{8}-[0-9]{6}-[a-f0-9]{6}' | head -n 1 || true)
+    elif [ -n "${G7_TEST_LOG_SID:-}" ]; then
+        log_sid="${G7_TEST_LOG_SID}"
+    fi
+
+    local py_resolver='
+import os, sys, re, json
+from datetime import datetime, timezone
+
+sessions_dir = sys.argv[1]
+started_str = sys.argv[2] if len(sys.argv) > 2 else ""
+log_sid = sys.argv[3] if len(sys.argv) > 3 else ""
+
+sid_regex = re.compile(r"^E3\.5-[0-9]{8}-[0-9]{6}-[a-f0-9]{6}$")
+
+if not os.path.isdir(sessions_dir):
+    sys.exit(1)
+
+start_epoch = None
+if started_str:
+    try:
+        iso_clean = started_str.replace("Z", "+00:00")
+        dt = datetime.fromisoformat(iso_clean)
+        start_epoch = dt.timestamp()
+    except Exception:
+        pass
+
+candidates = []
+try:
+    entries = sorted(os.listdir(sessions_dir))
+except Exception:
+    sys.exit(1)
+
+for fname in entries:
+    if not fname.endswith(".journal.jsonl"):
+        continue
+    sid = fname[:-len(".journal.jsonl")]
+    if not sid_regex.match(sid):
+        continue
+
+    fpath = os.path.join(sessions_dir, fname)
+    try:
+        mtime = os.path.getmtime(fpath)
+        with open(fpath, "r", encoding="utf-8") as f:
+            first_line = f.readline().strip()
+        if not first_line:
+            continue
+        ev = json.loads(first_line)
+        if ev.get("event_type") != "SESSION_STARTED":
+            continue
+        if ev.get("session_id") != sid:
+            continue
+
+        ev_time = ev.get("event_time_utc") or ev.get("recorded_at_utc")
+        ev_epoch = None
+        if ev_time:
+            try:
+                dt = datetime.fromisoformat(ev_time.replace("Z", "+00:00"))
+                ev_epoch = dt.timestamp()
+            except Exception:
+                pass
+
+        if start_epoch is not None:
+            if mtime < (start_epoch - 30):
+                continue
+            if ev_epoch is not None and abs(ev_epoch - start_epoch) > 300:
+                continue
+
+        candidates.append(sid)
+    except Exception:
+        continue
+
+if log_sid and sid_regex.match(log_sid):
+    if log_sid in candidates:
+        print(log_sid)
+        sys.exit(0)
+    elif not candidates:
+        log_fpath = os.path.join(sessions_dir, f"{log_sid}.journal.jsonl")
+        if os.path.isfile(log_fpath):
+            try:
+                with open(log_fpath, "r", encoding="utf-8") as f:
+                    ev = json.loads(f.readline().strip())
+                if ev.get("event_type") == "SESSION_STARTED" and ev.get("session_id") == log_sid:
+                    print(log_sid)
+                    sys.exit(0)
+            except Exception:
+                pass
+
+if len(candidates) == 1:
+    print(candidates[0])
+    sys.exit(0)
+elif len(candidates) > 1:
+    sys.stderr.write(f"[FATAL] Ambiguous active sessions found matching container startup: {candidates}\n")
+    sys.exit(2)
+else:
+    sys.stderr.write("[FATAL] No valid active session candidate found matching container startup\n")
+    sys.exit(1)
+'
+
+    local resolved_sid
+    resolved_sid=$(run_evidence_python "$container_name" "$py_resolver" "$sessions_dir" "$c_started" "$log_sid" 2>/dev/null || true)
+
+    if [ -n "$resolved_sid" ] && echo "$resolved_sid" | grep -qE '^E3\.5-[0-9]{8}-[0-9]{6}-[a-f0-9]{6}$'; then
+        echo "$resolved_sid"
+        return 0
+    else
+        return 1
     fi
 }
 
-# Robust journal timestamp extractor (jq with python fallback)
+get_json_field() {
+    local file="$1"
+    local field="$2"
+    if is_host_readable "$file"; then
+        if [ ! -f "$file" ]; then echo ""; return 0; fi
+        if command -v jq >/dev/null 2>&1; then
+            jq -r ".${field} // empty" "$file" 2>/dev/null || true
+        elif [ -n "$HOST_PYTHON" ]; then
+            "$HOST_PYTHON" -c "import json, sys; d=json.load(open(sys.argv[1], encoding='utf-8')); val=d.get(sys.argv[2], ''); print('' if val is None else val)" "$file" "$field" 2>/dev/null || true
+        fi
+    else
+        run_evidence_python "" "import json, sys; d=json.load(open(sys.argv[1], encoding='utf-8')); val=d.get(sys.argv[2], ''); print('' if val is None else val)" "$file" "$field" 2>/dev/null || true
+    fi
+}
+
 get_journal_timestamps() {
     local file="$1"
-    if [ ! -f "$file" ]; then return 0; fi
-    if command -v jq >/dev/null 2>&1; then
-        grep -E '"event_type"[[:space:]]*:[[:space:]]*"MARKET_BAR_RECEIVED"' "$file" 2>/dev/null \
-            | jq -r '.payload.timestamp_utc // .event_time_utc // empty' 2>/dev/null || true
-    elif [ -n "$HOST_PYTHON" ]; then
-        "$HOST_PYTHON" -c "
+    local container_name="${2:-}"
+
+    if is_host_readable "$file"; then
+        if [ ! -f "$file" ]; then return 0; fi
+        if command -v jq >/dev/null 2>&1; then
+            grep -E '"event_type"[[:space:]]*:[[:space:]]*"MARKET_BAR_RECEIVED"' "$file" 2>/dev/null \
+                | jq -r '.payload.timestamp_utc // .event_time_utc // empty' 2>/dev/null || true
+        elif [ -n "$HOST_PYTHON" ]; then
+            "$HOST_PYTHON" -c "
 import json, sys
 try:
     with open(sys.argv[1], 'r', encoding='utf-8') as f:
         for line in f:
-            if '\"event_type\"' in line and '\"MARKET_BAR_RECEIVED\"' in line:
+            if '"event_type"' in line and '"MARKET_BAR_RECEIVED"' in line:
                 try:
                     ev = json.loads(line)
                     if ev.get('event_type') == 'MARKET_BAR_RECEIVED':
@@ -106,10 +291,28 @@ try:
                 except Exception: pass
 except Exception: pass
 " "$file" 2>/dev/null || true
-    else
-        grep -E '"event_type"[[:space:]]*:[[:space:]]*"MARKET_BAR_RECEIVED"' "$file" 2>/dev/null \
-            | grep -oE '"timestamp_utc"[[:space:]]*:[[:space:]]*"[^"]+"' | cut -d'"' -f4 || true
+        else
+            grep -E '"event_type"[[:space:]]*:[[:space:]]*"MARKET_BAR_RECEIVED"' "$file" 2>/dev/null \
+                | grep -oE '"timestamp_utc"[[:space:]]*:[[:space:]]*"[^"]+"' | cut -d'"' -f4 || true
+        fi
+        return 0
     fi
+
+    # Host unreadable: query via container
+    run_evidence_python "$container_name" '
+import json, sys
+try:
+    with open(sys.argv[1], "r", encoding="utf-8") as f:
+        for line in f:
+            if "event_type" in line and "MARKET_BAR_RECEIVED" in line:
+                try:
+                    ev = json.loads(line)
+                    if ev.get("event_type") == "MARKET_BAR_RECEIVED":
+                        ts = ev.get("payload", {}).get("timestamp_utc") or ev.get("event_time_utc")
+                        if ts: print(ts)
+                except Exception: pass
+except Exception: pass
+' "$file" 2>/dev/null || true
 }
 
 # -----------------------------------------------------------------------------
@@ -139,8 +342,18 @@ cmd_status() {
         echo "Ratified Soak    : 6.00 continuous hours (RATIF-E36-G7-SOAK-20260912)"
 
         # Display latest sealed session summary if present
-        local latest_manifest
-        latest_manifest=$(ls -t "${SESSIONS_DIR}"/*.manifest.json 2>/dev/null | head -n 1 || true)
+        local latest_manifest=""
+        if is_host_readable "$SESSIONS_DIR"; then
+            latest_manifest=$(ls -t "${SESSIONS_DIR}"/*.manifest.json 2>/dev/null | head -n 1 || true)
+        else
+            latest_manifest=$(run_evidence_python "" '
+import glob, os, sys
+sdir = sys.argv[1]
+mf = sorted(glob.glob(os.path.join(sdir, "*.manifest.json")), key=os.path.getmtime, reverse=True)
+print(mf[0] if mf else "")
+' "$SESSIONS_DIR" 2>/dev/null || echo "")
+        fi
+
         if [ -n "$latest_manifest" ]; then
             local last_sid
             last_sid=$(basename "$latest_manifest" | sed 's/\.manifest\.json//')
@@ -158,21 +371,29 @@ cmd_status() {
 
     # Container IS running: extract live telemetry read-only
     local c_name c_status c_restarts c_started
-    c_name=$(docker inspect -f '{{.Name}}' "$container_id" | sed 's/\///')
-    c_status=$(docker inspect -f '{{.State.Status}}' "$container_id")
-    c_restarts=$(docker inspect -f '{{.RestartCount}}' "$container_id")
-    c_started=$(docker inspect -f '{{.State.StartedAt}}' "$container_id")
+    if [ "${G7_TEST_MODE:-0}" = "1" ]; then
+        c_name="acash-staging"
+        c_status="running"
+        c_restarts="0"
+        c_started="${G7_TEST_CONTAINER_STARTED:-2026-09-12T06:00:00Z}"
+    else
+        c_name=$(docker inspect -f '{{.Name}}' "$container_id" | sed 's/\///')
+        c_status=$(docker inspect -f '{{.State.Status}}' "$container_id")
+        c_restarts=$(docker inspect -f '{{.RestartCount}}' "$container_id")
+        c_started=$(docker inspect -f '{{.State.StartedAt}}' "$container_id")
+    fi
 
-    local c_mem
-    c_mem=$(docker stats --no-stream --format '{{.MemUsage}}' "$container_id" 2>/dev/null || echo "N/A")
-    local c_cpu
-    c_cpu=$(docker stats --no-stream --format '{{.CPUPerc}}' "$container_id" 2>/dev/null || echo "N/A")
+    local c_mem="N/A" c_cpu="N/A"
+    if [ "${G7_TEST_MODE:-0}" != "1" ] && command -v docker >/dev/null 2>&1; then
+        c_mem=$(docker stats --no-stream --format '{{.MemUsage}}' "$container_id" 2>/dev/null || echo "N/A")
+        c_cpu=$(docker stats --no-stream --format '{{.CPUPerc}}' "$container_id" 2>/dev/null || echo "N/A")
+    fi
 
-    # Session ID from logs or latest journal
+    # Authoritative session resolution
     local session_id
-    session_id=$(docker logs "$container_id" 2>&1 | grep -o 'E3\.5-[0-9]\{8\}-[0-9]\{6\}-[a-f0-9]\{6\}' | head -n 1 || true)
-    if [ -z "$session_id" ]; then
-        session_id=$(ls -t "${SESSIONS_DIR}"/*.journal.jsonl 2>/dev/null | head -n 1 | xargs -r -n 1 basename | sed 's/\.journal\.jsonl//' || echo "unknown")
+    session_id=$(resolve_active_session "$container_id" "$SESSIONS_DIR" 2>/dev/null || true)
+    if [ -z "$session_id" ] || ! echo "$session_id" | grep -qE '^E3\.5-[0-9]{8}-[0-9]{6}-[a-f0-9]{6}$'; then
+        session_id="UNAVAILABLE: session unresolved"
     fi
 
     # Elapsed time calculation
@@ -188,30 +409,117 @@ cmd_status() {
     remaining_fmt=$(printf '%02dh:%02dm:%02ds' $((remaining_sec/3600)) $(( (remaining_sec%3600)/60 )) $((remaining_sec%60)))
 
     # Journal / Bar statistics
-    local journal_file="${SESSIONS_DIR}/${session_id}.journal.jsonl"
-    local bar_count=0 duplicate_ts=0 latest_bar_ts="None" latest_journal_ts="None" feed_fails=0
+    local bar_count="UNAVAILABLE" duplicate_ts="UNAVAILABLE" latest_bar_ts="UNAVAILABLE" latest_journal_ts="UNAVAILABLE" feed_fails="UNAVAILABLE"
     local latest_feed_err="None" latest_feed_cat="None"
-    if [ -f "$journal_file" ]; then
-        bar_count=$(grep -cE '"event_type"[[:space:]]*:[[:space:]]*"MARKET_BAR_RECEIVED"' "$journal_file" 2>/dev/null || true)
-        bar_count=$(echo "$bar_count" | tr -d '[:space:]')
-        duplicate_ts=$(get_journal_timestamps "$journal_file" | sort | uniq -d | wc -l)
-        duplicate_ts=$(echo "$duplicate_ts" | tr -d '[:space:]')
-        latest_bar_ts=$(get_journal_timestamps "$journal_file" | tail -n 1 || echo "None")
-        latest_journal_ts=$(tail -n 1 "$journal_file" 2>/dev/null | grep -oE '"recorded_at_utc"[[:space:]]*:[[:space:]]*"[^"]*"' | head -n 1 | cut -d'"' -f4 || echo "None")
-        feed_fails=$(grep -cE '"event_type"[[:space:]]*:[[:space:]]*"FEED_DISCONNECTED"' "$journal_file" 2>/dev/null || true)
-        feed_fails=$(echo "$feed_fails" | tr -d '[:space:]')
-        if [ "$feed_fails" -gt 0 ]; then
-            local last_disc_line
-            last_disc_line=$(grep -E '"event_type"[[:space:]]*:[[:space:]]*"FEED_DISCONNECTED"' "$journal_file" 2>/dev/null | tail -n 1 || true)
-            latest_feed_err=$(echo "$last_disc_line" | grep -oE '"error_class"[[:space:]]*:[[:space:]]*"[^"]*"' | head -n 1 | cut -d'"' -f4 || echo "Unknown")
-            latest_feed_cat=$(echo "$last_disc_line" | grep -oE '"category"[[:space:]]*:[[:space:]]*"[^"]*"' | head -n 1 | cut -d'"' -f4 || echo "Unknown")
+
+    if [ "$session_id" != "UNAVAILABLE: session unresolved" ]; then
+        local journal_file="${SESSIONS_DIR}/${session_id}.journal.jsonl"
+        if is_host_readable "$journal_file" && [ -f "$journal_file" ]; then
+            bar_count=$(grep -cE '"event_type"[[:space:]]*:[[:space:]]*"MARKET_BAR_RECEIVED"' "$journal_file" 2>/dev/null || echo "0")
+            bar_count=$(echo "$bar_count" | tr -d '[:space:]')
+            duplicate_ts=$(get_journal_timestamps "$journal_file" | sort | uniq -d | wc -l)
+            duplicate_ts=$(echo "$duplicate_ts" | tr -d '[:space:]')
+            latest_bar_ts=$(get_journal_timestamps "$journal_file" | tail -n 1 || echo "None")
+            latest_journal_ts=$(tail -n 1 "$journal_file" 2>/dev/null | grep -oE '"recorded_at_utc"[[:space:]]*:[[:space:]]*"[^"]*"' | head -n 1 | cut -d'"' -f4 || echo "None")
+            feed_fails=$(grep -cE '"event_type"[[:space:]]*:[[:space:]]*"FEED_DISCONNECTED"' "$journal_file" 2>/dev/null || echo "0")
+            feed_fails=$(echo "$feed_fails" | tr -d '[:space:]')
+            if [ "$feed_fails" -gt 0 ]; then
+                local last_disc_line
+                last_disc_line=$(grep -E '"event_type"[[:space:]]*:[[:space:]]*"FEED_DISCONNECTED"' "$journal_file" 2>/dev/null | tail -n 1 || true)
+                latest_feed_err=$(echo "$last_disc_line" | grep -oE '"error_class"[[:space:]]*:[[:space:]]*"[^"]*"' | head -n 1 | cut -d'"' -f4 || echo "Unknown")
+                latest_feed_cat=$(echo "$last_disc_line" | grep -oE '"category"[[:space:]]*:[[:space:]]*"[^"]*"' | head -n 1 | cut -d'"' -f4 || echo "Unknown")
+            fi
+        else
+            # Host unreadable: Query journal via container
+            local container_telemetry
+            container_telemetry=$(run_evidence_python "$container_id" '
+import sys, json
+path = sys.argv[1]
+try:
+    bar_count = 0
+    duplicate_ts = 0
+    timestamps = []
+    latest_bar_ts = "None"
+    latest_journal_ts = "None"
+    feed_fails = 0
+    latest_feed_err = "None"
+    latest_feed_cat = "None"
+
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line: continue
+            try:
+                ev = json.loads(line)
+                et = ev.get("event_type")
+                r_ts = ev.get("recorded_at_utc")
+                if r_ts: latest_journal_ts = r_ts
+
+                if et == "MARKET_BAR_RECEIVED":
+                    bar_count += 1
+                    p = ev.get("payload") or {}
+                    ts = p.get("timestamp_utc") or (p.get("bar") or {}).get("timestamp") or ev.get("event_time_utc")
+                    if ts:
+                        timestamps.append(ts)
+                        latest_bar_ts = ts
+                elif et == "FEED_DISCONNECTED":
+                    feed_fails += 1
+                    p = ev.get("payload") or {}
+                    latest_feed_err = p.get("error_class") or "Unknown"
+                    latest_feed_cat = p.get("category") or "Unknown"
+            except Exception:
+                if "event_type" in line and "MARKET_BAR_RECEIVED" in line:
+                    bar_count += 1
+
+    seen = set()
+    dups = set()
+    for t in timestamps:
+        if t in seen: dups.add(t)
+        seen.add(t)
+    duplicate_ts = len(dups)
+
+    print(f"BAR_COUNT={bar_count}")
+    print(f"DUPLICATE_TS={duplicate_ts}")
+    print(f"LATEST_BAR_TS={latest_bar_ts}")
+    print(f"LATEST_JOURNAL_TS={latest_journal_ts}")
+    print(f"FEED_FAILS={feed_fails}")
+    print(f"LATEST_FEED_ERR={latest_feed_err}")
+    print(f"LATEST_FEED_CAT={latest_feed_cat}")
+except Exception:
+    print("STATUS=UNAVAILABLE")
+' "$journal_file" 2>/dev/null || echo "STATUS=UNAVAILABLE")
+
+            if [ -n "$container_telemetry" ] && ! echo "$container_telemetry" | grep -q "STATUS=UNAVAILABLE"; then
+                while IFS='=' read -r key val; do
+                    key="${key%$'\r'}"
+                    val="${val%$'\r'}"
+                    case "$key" in
+                        BAR_COUNT) bar_count="$val" ;;
+                        DUPLICATE_TS) duplicate_ts="$val" ;;
+                        LATEST_BAR_TS) latest_bar_ts="$val" ;;
+                        LATEST_JOURNAL_TS) latest_journal_ts="$val" ;;
+                        FEED_FAILS) feed_fails="$val" ;;
+                        LATEST_FEED_ERR) latest_feed_err="$val" ;;
+                        LATEST_FEED_CAT) latest_feed_cat="$val" ;;
+                    esac
+                done <<< "$container_telemetry"
+            else
+                bar_count="UNAVAILABLE: journal unreadable"
+                duplicate_ts="UNAVAILABLE"
+                latest_bar_ts="UNAVAILABLE"
+                latest_journal_ts="UNAVAILABLE"
+                feed_fails="UNAVAILABLE"
+            fi
         fi
     fi
 
     # Metrics listener check on :9102
     local metrics_status="DOWN"
-    local metrics_code
-    metrics_code=$(docker exec "$container_id" python -c "
+    if [ "${G7_TEST_MODE:-0}" = "1" ]; then
+        metrics_status="UP (HTTP 200)"
+    elif command -v docker >/dev/null 2>&1; then
+        local metrics_code
+        metrics_code=$(docker exec "$container_id" python -c "
 import urllib.request
 try:
     resp = urllib.request.urlopen('http://127.0.0.1:9102/metrics', timeout=2)
@@ -219,15 +527,21 @@ try:
 except Exception:
     print('ERR')
 " 2>/dev/null || echo "ERR")
-    if [ "$metrics_code" = "200" ]; then metrics_status="UP (HTTP 200)"; fi
+        if [ "$metrics_code" = "200" ]; then metrics_status="UP (HTTP 200)"; fi
+    fi
 
     # VictoriaMetrics scraping status
     local vm_target_health="UNKNOWN"
-    local vm_targets
-    vm_targets=$(docker exec victoriametrics wget -qO- "http://127.0.0.1:8428/api/v1/targets" 2>/dev/null || echo "{}")
-    vm_target_health=$(echo "$vm_targets" | grep -q "acash-paper" && echo "UP" || echo "DOWN")
+    if [ "${G7_TEST_MODE:-0}" = "1" ]; then
+        vm_target_health="UP"
+    elif command -v docker >/dev/null 2>&1; then
+        local vm_targets
+        vm_targets=$(docker exec victoriametrics wget -qO- "http://127.0.0.1:8428/api/v1/targets" 2>/dev/null || echo "{}")
+        vm_target_health=$(echo "$vm_targets" | grep -q "acash-paper" && echo "UP" || echo "DOWN")
+    fi
 
     echo -e "Container Name   : ${c_name} (${GREEN}${c_status}${NC})"
+    echo -e "Container ID     : ${container_id:0:12}"
     echo -e "RestartCount     : ${c_restarts} (Invariant: must be 0)"
     echo -e "CPU Usage        : ${c_cpu}"
     echo -e "Memory Usage     : ${c_mem} (Limit: 512 MiB)"
@@ -239,7 +553,7 @@ except Exception:
     echo -e "Latest Bar Time  : ${latest_bar_ts}"
     echo -e "Latest Journal   : ${latest_journal_ts}"
     echo -e "Feed Disconnects : ${feed_fails}"
-    if [ "$feed_fails" -gt 0 ]; then
+    if [ "$feed_fails" != "UNAVAILABLE" ] && [ "$feed_fails" != "0" ] && [ -n "$feed_fails" ]; then
         echo -e "Feed Diagnosis   : ${latest_feed_err} [${latest_feed_cat}]"
     fi
     echo -e "Metrics (:9102)  : ${metrics_status}"
@@ -251,7 +565,6 @@ except Exception:
     echo -e "${BLUE}======================================================================${NC}"
 }
 
-# -----------------------------------------------------------------------------
 # COMMAND: audit (STRICTLY READ-ONLY 25-POINT EVIDENCE AUDIT)
 # -----------------------------------------------------------------------------
 cmd_audit() {
@@ -289,7 +602,11 @@ cmd_audit() {
         # If still no session, check newest sealed session or run in Pre-Soak Readiness Mode
         if [ -z "$target_session" ]; then
             local newest_manifest
-            newest_manifest=$(ls -t "${SESSIONS_DIR}"/*.manifest.json 2>/dev/null | head -n 1 || true)
+            if is_host_readable "$SESSIONS_DIR"; then
+                newest_manifest=$(ls -t "${SESSIONS_DIR}"/*.manifest.json 2>/dev/null | head -n 1 || true)
+            else
+                newest_manifest=$(run_evidence_python "" 'import glob, os, sys; mf=sorted(glob.glob(os.path.join(sys.argv[1], "*.manifest.json")), key=os.path.getmtime, reverse=True); print(mf[0] if mf else "")' "$SESSIONS_DIR" 2>/dev/null || echo "")
+            fi
             if [ -n "$newest_manifest" ]; then
                 target_session=$(basename "$newest_manifest" | sed 's/\.manifest\.json//')
                 journal_file="${SESSIONS_DIR}/${target_session}.journal.jsonl"
@@ -358,7 +675,7 @@ cmd_audit() {
     fi
 
     # 3. Journal File Path
-    if [ -n "$target_session" ] && [ -f "$journal_file" ]; then
+    if [ -n "$target_session" ] && ( ( is_host_readable "$journal_file" && [ -f "$journal_file" ] ) || run_evidence_python "" "import os, sys; sys.exit(0 if os.path.isfile(sys.argv[1]) else 1)" "$journal_file" 2>/dev/null ); then
         audit_item "03" "Journal File Path" "PASS" \
             "runtime filesystem" "${journal_file}" \
             "Primary immutable append-only event source of truth" "YES" "YES"
@@ -369,7 +686,7 @@ cmd_audit() {
     fi
 
     # 4. Manifest File Path
-    if [ -n "$target_session" ] && [ -f "$manifest_file" ]; then
+    if [ -n "$target_session" ] && ( ( is_host_readable "$manifest_file" && [ -f "$manifest_file" ] ) || run_evidence_python "" "import os, sys; sys.exit(0 if os.path.isfile(sys.argv[1]) else 1)" "$manifest_file" 2>/dev/null ); then
         audit_item "04" "Manifest File Path" "PASS" \
             "runtime filesystem" "${manifest_file}" \
             "Sealed session cryptographic summary and governance attestation" "YES" "YES"
@@ -380,7 +697,7 @@ cmd_audit() {
     fi
 
     # 5. Snapshot File Path
-    if [ -n "$target_session" ] && [ -f "$snapshot_file" ] && [ -s "$snapshot_file" ]; then
+    if [ -n "$target_session" ] && ( ( is_host_readable "$snapshot_file" && [ -f "$snapshot_file" ] && [ -s "$snapshot_file" ] ) || run_evidence_python "" "import os, sys; p=sys.argv[1]; sys.exit(0 if os.path.isfile(p) and os.path.getsize(p) > 0 else 1)" "$snapshot_file" 2>/dev/null ); then
         audit_item "05" "Snapshot File Path" "PASS" \
             "runtime filesystem" "${snapshot_file}" \
             "Mandatory daily summary required for build_review_package()" "YES" "YES"
@@ -499,7 +816,7 @@ cmd_audit() {
         "Locks financial capital at zero during soak execution" "YES" "YES"
 
     # 18. Zero-Order Submission Evidence
-    if [ -n "$target_session" ] && [ -f "$journal_file" ]; then
+    if [ -n "$target_session" ] && ( ( is_host_readable "$journal_file" && [ -f "$journal_file" ] ) || run_evidence_python "" "import os, sys; sys.exit(0 if os.path.isfile(sys.argv[1]) else 1)" "$journal_file" 2>/dev/null ); then
         local real_orders
         real_orders=$(grep -cE '"event_type"[[:space:]]*:[[:space:]]*"ORDER_SUBMITTED"' "$journal_file" 2>/dev/null || true)
         real_orders=$(echo "$real_orders" | tr -d '[:space:]')
