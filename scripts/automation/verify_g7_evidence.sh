@@ -15,46 +15,6 @@ NC='\033[0m'
 STORAGE_ROOT="${ACASH_STORAGE_ROOT:-${STORAGE_ROOT:-/data/docker/acash}}"
 SESSIONS_DIR="${STORAGE_ROOT}/sessions"
 
-SESSION_ID="${1:-}"
-if [ -z "$SESSION_ID" ]; then
-    # Pick newest manifest in sessions dir (permission-safe)
-    if [ -r "${SESSIONS_DIR}" ] 2>/dev/null && [ "${G7_SIMULATE_HOST_UNREADABLE:-0}" != "1" ]; then
-        LATEST_MANIFEST=$(ls -t "${SESSIONS_DIR}"/*.manifest.json 2>/dev/null | head -n 1 || true)
-    else
-        LATEST_MANIFEST=$(run_evidence_python "" '
-import glob, os, sys
-sdir = sys.argv[1]
-mf = sorted(glob.glob(os.path.join(sdir, "*.manifest.json")), key=os.path.getmtime, reverse=True)
-print(mf[0] if mf else "")
-' "${SESSIONS_DIR}" 2>/dev/null || echo "")
-    fi
-    if [ -n "$LATEST_MANIFEST" ]; then
-        SESSION_ID=$(basename "$LATEST_MANIFEST" | sed 's/\.manifest\.json//')
-    fi
-fi
-
-if [ -z "$SESSION_ID" ]; then
-    echo -e "${RED}[ERROR] No session ID provided and no manifest found in ${SESSIONS_DIR}!${NC}"
-    echo "Usage: $0 [SESSION_ID]"
-    exit 1
-fi
-
-echo -e "${BLUE}======================================================================${NC}"
-echo -e "${BLUE}       ACASH V5 — GATE G7 EVIDENCE & RECONCILIATION PACKAGE          ${NC}"
-echo -e "${BLUE}======================================================================${NC}"
-echo "Auditing Session ID: ${SESSION_ID}"
-echo "Storage Path       : ${SESSIONS_DIR}"
-echo "Timestamp UTC      : $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
-echo "----------------------------------------------------------------------"
-
-JOURNAL_FILE="${SESSIONS_DIR}/${SESSION_ID}.journal.jsonl"
-MANIFEST_FILE="${SESSIONS_DIR}/${SESSION_ID}.manifest.json"
-SNAPSHOT_FILE="${SESSIONS_DIR}/${SESSION_ID}.snapshots.jsonl"
-
-FAILURES=0
-G7_CONTINUITY_ELIGIBLE=true
-RUN_CLASS="CONTINUOUS"
-
 # Centralized Host Python Resolution Contract
 resolve_host_python() {
     if [ -n "${G7_PYTHON_BIN:-}" ]; then
@@ -115,6 +75,51 @@ run_evidence_python() {
         "${ACASH_IMAGE:-acash:e36-ws10-staging}" \
         -c "$py_code" "$@"
 }
+
+SESSION_ID="${1:-}"
+if [ -z "$SESSION_ID" ]; then
+    LATEST_MANIFEST=""
+    if is_host_readable "${SESSIONS_DIR}" && [ -d "${SESSIONS_DIR}" ]; then
+        LATEST_MANIFEST=$(ls -t "${SESSIONS_DIR}"/*.manifest.json 2>/dev/null | head -n 1 || true)
+    fi
+    if [ -z "$LATEST_MANIFEST" ]; then
+        LATEST_MANIFEST=$(run_evidence_python "" '
+import glob, os, sys
+sdir = sys.argv[1]
+try:
+    mf = sorted(glob.glob(os.path.join(sdir, "*.manifest.json")), key=os.path.getmtime, reverse=True)
+    print(mf[0] if mf else "")
+except Exception:
+    print("")
+' "${SESSIONS_DIR}" 2>/dev/null || echo "")
+    fi
+    LATEST_MANIFEST=$(echo "$LATEST_MANIFEST" | tr -d '[:space:]')
+    if [ -n "$LATEST_MANIFEST" ]; then
+        SESSION_ID=$(basename "$LATEST_MANIFEST" | sed 's/\.manifest\.json//')
+    fi
+fi
+
+if [ -z "$SESSION_ID" ]; then
+    echo -e "${RED}[ERROR] No session ID provided and no manifest found in ${SESSIONS_DIR}!${NC}"
+    echo "Usage: $0 [SESSION_ID]"
+    exit 1
+fi
+
+echo -e "${BLUE}======================================================================${NC}"
+echo -e "${BLUE}       ACASH V5 — GATE G7 EVIDENCE & RECONCILIATION PACKAGE          ${NC}"
+echo -e "${BLUE}======================================================================${NC}"
+echo "Auditing Session ID: ${SESSION_ID}"
+echo "Storage Path       : ${SESSIONS_DIR}"
+echo "Timestamp UTC      : $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+echo "----------------------------------------------------------------------"
+
+JOURNAL_FILE="${SESSIONS_DIR}/${SESSION_ID}.journal.jsonl"
+MANIFEST_FILE="${SESSIONS_DIR}/${SESSION_ID}.manifest.json"
+SNAPSHOT_FILE="${SESSIONS_DIR}/${SESSION_ID}.snapshots.jsonl"
+
+FAILURES=0
+G7_CONTINUITY_ELIGIBLE=true
+RUN_CLASS="CONTINUOUS"
 
 get_json_field() {
     local file="$1"
@@ -219,10 +224,10 @@ if [ "$MANIFEST_EXISTS" = true ]; then
 
     M_NO_REAL=$(get_json_field "$MANIFEST_FILE" "no_real_orders")
     M_ORDERS=$(get_json_field "$MANIFEST_FILE" "total_order_count")
-    if [ "$M_NO_REAL" = "true" ]; then
-        record_check "1.2" "Manifest attestation: no_real_orders=true" "PASS" "no_real_orders=${M_NO_REAL}, total_orders=${M_ORDERS:-0}"
+    if [ "$M_NO_REAL" = "true" ] && [ -n "$M_ORDERS" ] && [ "$M_ORDERS" != "null" ] && [ "$M_ORDERS" -eq 0 ] 2>/dev/null; then
+        record_check "1.2" "Manifest zero-order invariant (no_real_orders=true, total_order_count=0)" "PASS" "no_real_orders=true, total_order_count=0"
     else
-        record_check "1.2" "Manifest attestation: no_real_orders=true" "FAIL" "no_real_orders=${M_NO_REAL:-missing}, total_orders=${M_ORDERS:-unknown}"
+        record_check "1.2" "Manifest zero-order invariant (no_real_orders=true, total_order_count=0)" "FAIL" "no_real_orders=${M_NO_REAL:-missing}, total_order_count=${M_ORDERS:-missing} (G7 soak requires zero orders)"
     fi
 else
     record_check "1.1" "Manifest file present" "FAIL" "Missing ${MANIFEST_FILE}"
@@ -561,31 +566,59 @@ fi
 # 7. Security & Order Invariants
 # -----------------------------------------------------------------------------
 if [ "$JOURNAL_EXISTS" = true ]; then
-    if is_host_readable "$JOURNAL_FILE"; then
-        REAL_ORDERS=$(grep -cE '"event_type"[[:space:]]*:[[:space:]]*"ORDER_SUBMITTED"' "$JOURNAL_FILE" 2>/dev/null || true)
-        REAL_ORDERS=$(echo "$REAL_ORDERS" | tr -d '[:space:]')
-    else
-        REAL_ORDERS=$(run_evidence_python "" '
-import sys
+    ORDER_COUNT=""
+    if is_host_readable "$JOURNAL_FILE" && [ -f "$JOURNAL_FILE" ]; then
+        if [ -n "$HOST_PYTHON" ]; then
+            ORDER_COUNT=$("$HOST_PYTHON" -c '
+import json, sys
 count = 0
 try:
     with open(sys.argv[1], "r", encoding="utf-8") as f:
         for line in f:
-            if "ORDER_SUBMITTED" in line: count += 1
+            line = line.strip()
+            if not line: continue
+            try:
+                ev = json.loads(line)
+                if ev.get("event_type") == "ORDER_SUBMITTED":
+                    count += 1
+            except Exception: pass
     print(count)
 except Exception:
-    print(0)
-' "$JOURNAL_FILE" 2>/dev/null || echo "0")
-        REAL_ORDERS=$(echo "$REAL_ORDERS" | tr -d '[:space:]')
+    sys.exit(1)
+' "$JOURNAL_FILE" 2>/dev/null || echo "")
+        else
+            ORDER_COUNT=$(grep -cE '"event_type"[[:space:]]*:[[:space:]]*"ORDER_SUBMITTED"' "$JOURNAL_FILE" 2>/dev/null || true)
+        fi
     fi
+    if [ -z "$ORDER_COUNT" ]; then
+        ORDER_COUNT=$(run_evidence_python "" '
+import json, sys
+count = 0
+try:
+    with open(sys.argv[1], "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line: continue
+            try:
+                ev = json.loads(line)
+                if ev.get("event_type") == "ORDER_SUBMITTED":
+                    count += 1
+            except Exception: pass
+    print(count)
+except Exception:
+    sys.exit(1)
+' "$JOURNAL_FILE" 2>/dev/null || echo "")
+    fi
+    ORDER_COUNT=$(echo "$ORDER_COUNT" | tr -d '[:space:]')
+
     M_NO_REAL=$(get_json_field "$MANIFEST_FILE" "no_real_orders")
-    if [ "$M_NO_REAL" = "true" ] && [ "$REAL_ORDERS" = "0" ]; then
-        record_check "7.1" "Zero real order submissions in journal (NO_REAL_ORDERS=true)" "PASS" "0 orders submitted"
-    elif [ "$M_NO_REAL" = "true" ]; then
-        record_check "7.1" "No real orders placed (attested by manifest; simulated order count: ${REAL_ORDERS})" "PASS" "no_real_orders=true, ${REAL_ORDERS} simulated orders"
+    if [ "$M_NO_REAL" = "true" ] && [ -n "$ORDER_COUNT" ] && [ "$ORDER_COUNT" = "0" ]; then
+        record_check "7.1" "Zero order submissions in journal (NO_REAL_ORDERS=true, ORDER_SUBMITTED=0)" "PASS" "0 ORDER_SUBMITTED events (PaperSessionManifest generally distinguishes simulated paper execution from real broker execution; however, this G7 soak additionally requires zero order submissions under its existing acceptance contract)"
     else
-        record_check "7.1" "Zero real order submissions in journal (NO_REAL_ORDERS=true)" "FAIL" "no_real_orders=${M_NO_REAL:-missing}, ${REAL_ORDERS} orders detected!"
+        record_check "7.1" "Zero order submissions in journal (NO_REAL_ORDERS=true, ORDER_SUBMITTED=0)" "FAIL" "no_real_orders=${M_NO_REAL:-missing}, ORDER_SUBMITTED=${ORDER_COUNT:-unreadable} (G7 soak acceptance requires zero order submissions)"
     fi
+else
+    record_check "7.1" "Zero order submissions in journal" "FAIL" "Missing journal for order audit"
 fi
 
 echo -e "\n${BLUE}======================================================================${NC}"

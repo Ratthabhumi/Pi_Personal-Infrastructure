@@ -212,11 +212,19 @@ class TestG7Suite(unittest.TestCase):
                 "mode": "PAPER_ONLY",
                 "no_real_orders": not has_order,
                 "simulated_fills_only": True,
+                "governance_label": "PAPER_TRADING_INFRASTRUCTURE_TEST",
                 "strategy_id": "INFRA-TEST-MOMENTUM-SYNTHETIC-001",
                 "strategy_version": "1.0.0",
+                "is_infrastructure_test_strategy": True,
                 "git_commit": "ec3a903",
                 "config_hash": "c" * 64,
+                "strategy_config_hash": "s" * 64,
                 "journal_final_hash": prev_hash if sealed else "",
+                "data_source": "feed:binance",
+                "instrument_universe": ["BTCUSDT"],
+                "market_domain": "CRYPTO",
+                "fill_model_version": "1.0.0",
+                "risk_model_version": "1.0.0",
                 "start_time_utc": start_time.isoformat(),
                 "end_time_utc": end_time.isoformat(),
                 "total_event_count": bar_count + 1 + (1 if has_order else 0),
@@ -1036,6 +1044,139 @@ class TestG7Suite(unittest.TestCase):
         self.assertNotEqual(proc.returncode, 0)
         self.assertIn("5.1: Session duration >= 6.00 continuous hours", proc.stdout)
         self.assertIn("FAIL", proc.stdout)
+
+
+    def test_manifest_zero_order_acceptance(self):
+        """Regression Test: no_real_orders=true and total_order_count=0 PASSES Check 1.2."""
+        self._create_synthetic_evidence(bar_count=360, has_order=False)
+        proc = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("1.2: Manifest zero-order invariant", proc.stdout)
+        self.assertIn("PASS", proc.stdout)
+
+    def test_manifest_nonzero_orders_fails(self):
+        """Regression Test: no_real_orders=true but total_order_count=1 FAILS Check 1.2."""
+        self._create_synthetic_evidence(bar_count=360, has_order=False)
+        with open(self.manifest_file, "r", encoding="utf-8") as f:
+            m = json.load(f)
+        m["total_order_count"] = 1  # non-zero order count
+        with open(self.manifest_file, "w", encoding="utf-8") as f:
+            json.dump(m, f, indent=2)
+
+        proc = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("1.2: Manifest zero-order invariant", proc.stdout)
+        self.assertIn("FAIL", proc.stdout)
+
+    def test_journal_nonzero_order_submission_fails(self):
+        """Regression Test: ORDER_SUBMITTED > 0 in journal FAILS Check 7.1."""
+        self._create_synthetic_evidence(bar_count=360, has_order=True)
+        # Force manifest total_order_count=0 to isolate journal check
+        with open(self.manifest_file, "r", encoding="utf-8") as f:
+            m = json.load(f)
+        m["no_real_orders"] = True
+        m["total_order_count"] = 0
+        with open(self.manifest_file, "w", encoding="utf-8") as f:
+            json.dump(m, f, indent=2)
+
+        proc = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("7.1: Zero order submissions in journal", proc.stdout)
+        self.assertIn("FAIL", proc.stdout)
+
+    def test_permission_safe_g7_audit_nonzero_orders_fails(self):
+        """Regression Test: host journal unreadable, container-side journal has 1 ORDER_SUBMITTED => g7.sh audit FAILS."""
+        self._create_synthetic_evidence(bar_count=360, has_order=True)
+        custom_env = self.test_env.copy()
+        custom_env["G7_SIMULATE_HOST_UNREADABLE"] = "1"
+
+        proc = run_bash([G7_SCRIPT, "audit", self.session_id], env=custom_env)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("18: Zero Order Submission Evidence", proc.stdout)
+        self.assertIn("FAIL", proc.stdout)
+        self.assertIn("orders dispatched!", proc.stdout)
+
+    def test_permission_safe_g7_audit_zero_orders_passes(self):
+        """Regression Test: host journal unreadable, container-side journal has 0 ORDER_SUBMITTED => g7.sh audit PASSES."""
+        self._create_synthetic_evidence(bar_count=360, has_order=False)
+        custom_env = self.test_env.copy()
+        custom_env["G7_SIMULATE_HOST_UNREADABLE"] = "1"
+
+        proc = run_bash([G7_SCRIPT, "audit", self.session_id], env=custom_env)
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("18: Zero Order Submission Evidence", proc.stdout)
+        self.assertIn("PASS", proc.stdout)
+        self.assertIn("0 ORDER_SUBMITTED events", proc.stdout)
+
+    def test_neither_host_nor_container_readable_fails_closed(self):
+        """Regression Test: Neither host nor container readable fails closed, never reports 0 orders."""
+        self._create_synthetic_evidence(bar_count=360, has_order=False)
+        custom_env = self.test_env.copy()
+        custom_env["G7_SIMULATE_HOST_UNREADABLE"] = "1"
+        custom_env["G7_TEST_CONTAINER_UNREADABLE"] = "1"
+
+        proc_audit = run_bash([G7_SCRIPT, "audit", self.session_id], env=custom_env)
+        self.assertNotEqual(proc_audit.returncode, 0)
+        self.assertIn("18: Zero Order Submission Evidence", proc_audit.stdout)
+        self.assertIn("FAIL", proc_audit.stdout)
+
+        proc_verify = run_bash([VERIFY_SCRIPT, self.session_id], env=custom_env)
+        self.assertNotEqual(proc_verify.returncode, 0)
+
+    def test_verifier_no_argument_auto_discovery_host_unreadable(self):
+        """Regression Test: SESSION_ID omitted, host unreadable, container-readable auto-discovers session."""
+        self._create_synthetic_evidence(bar_count=360, has_order=False)
+        custom_env = self.test_env.copy()
+        custom_env["G7_SIMULATE_HOST_UNREADABLE"] = "1"
+
+        # Call VERIFY_SCRIPT with NO arguments
+        proc = run_bash([VERIFY_SCRIPT], env=custom_env)
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn(f"Auditing Session ID: {self.session_id}", proc.stdout)
+        self.assertIn("GATE G7 ACCEPTANCE CRITERIA: PASS", proc.stdout)
+
+    def test_manifest_schema_completeness_and_validation(self):
+        """Regression Test: Synthetic manifest contains all canonical PaperSessionManifest fields and validates."""
+        self._create_synthetic_evidence(bar_count=360, has_order=False)
+        with open(self.manifest_file, "r", encoding="utf-8") as f:
+            m = json.load(f)
+
+        expected_fields = {
+            "session_id", "manifest_id", "mode", "no_real_orders", "simulated_fills_only",
+            "governance_label", "strategy_id", "strategy_version", "is_infrastructure_test_strategy",
+            "git_commit", "config_hash", "strategy_config_hash", "journal_final_hash",
+            "data_source", "instrument_universe", "market_domain",
+            "fill_model_version", "risk_model_version",
+            "start_time_utc", "end_time_utc",
+            "total_event_count", "total_warning_count", "total_error_count",
+            "total_trade_count", "total_order_count", "total_rejected_order_count",
+            "final_portfolio_summary", "final_reconciliation_status", "journal_integrity_status",
+            "manifest_hash", "sealed_at_utc"
+        }
+        for field in expected_fields:
+            self.assertIn(field, m, f"Required PaperSessionManifest field '{field}' missing from synthetic manifest!")
+
+        try:
+            import sys
+            acash_src = str(REPO_ROOT.parent / "Acash" / "src")
+            if acash_src not in sys.path:
+                sys.path.insert(0, acash_src)
+            from acash.paper.manifest import PaperSessionManifest
+            validated = PaperSessionManifest.model_validate(m)
+            self.assertEqual(validated.session_id, self.session_id)
+            self.assertTrue(validated.no_real_orders)
+            self.assertTrue(validated.simulated_fills_only)
+        except ImportError:
+            pass
+
+    def test_fake_sealed_boolean_rejection_audit_19(self):
+        """Regression Test: g7.sh Audit Item 19 verifies canonical sealing fields, not fake sealed boolean."""
+        g7_path = REPO_ROOT / "scripts" / "automation" / "g7.sh"
+        with open(g7_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        self.assertNotIn("sealed: true, manifest_hash, journal_final_hash", content)
+        self.assertIn("sealed_at_utc + manifest_hash + journal_final_hash", content)
 
 if __name__ == "__main__":
     unittest.main()

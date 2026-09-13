@@ -358,11 +358,15 @@ print(mf[0] if mf else "")
             local last_sid
             last_sid=$(basename "$latest_manifest" | sed 's/\.manifest\.json//')
             echo -e "\n${CYAN}Last Sealed Session:${NC} ${last_sid}"
-            local m_sealed m_dur
-            m_sealed=$(get_json_field "$latest_manifest" "sealed")
+            local m_sealed m_dur m_status
+            m_sealed=$(get_json_field "$latest_manifest" "sealed_at_utc")
+            m_status="false"
+            if [ -n "$m_sealed" ] && [ "$m_sealed" != "null" ]; then
+                m_status="true (${m_sealed})"
+            fi
             m_dur=$(get_json_field "$latest_manifest" "duration_seconds")
             if [ -z "$m_dur" ]; then m_dur=0; fi
-            echo "  Sealed Status : ${m_sealed:-false}"
+            echo "  Sealed Status : ${m_status}"
             echo "  Duration      : ${m_dur}s ($((m_dur/3600))h $(( (m_dur%3600)/60 ))m)"
         fi
         echo -e "${BLUE}======================================================================${NC}"
@@ -816,18 +820,63 @@ cmd_audit() {
         "Locks financial capital at zero during soak execution" "YES" "YES"
 
     # 18. Zero-Order Submission Evidence
-    if [ -n "$target_session" ] && ( ( is_host_readable "$journal_file" && [ -f "$journal_file" ] ) || run_evidence_python "" "import os, sys; sys.exit(0 if os.path.isfile(sys.argv[1]) else 1)" "$journal_file" 2>/dev/null ); then
-        local real_orders
-        real_orders=$(grep -cE '"event_type"[[:space:]]*:[[:space:]]*"ORDER_SUBMITTED"' "$journal_file" 2>/dev/null || true)
-        real_orders=$(echo "$real_orders" | tr -d '[:space:]')
-        if [ "$real_orders" = "0" ]; then
+    if [ -n "$target_session" ]; then
+        local order_count=""
+        if is_host_readable "$journal_file" && [ -f "$journal_file" ]; then
+            if [ -n "$HOST_PYTHON" ]; then
+                order_count=$("$HOST_PYTHON" -c '
+import json, sys
+count = 0
+try:
+    with open(sys.argv[1], "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line: continue
+            try:
+                ev = json.loads(line)
+                if ev.get("event_type") == "ORDER_SUBMITTED":
+                    count += 1
+            except Exception: pass
+    print(count)
+except Exception:
+    sys.exit(1)
+' "$journal_file" 2>/dev/null || echo "")
+            else
+                order_count=$(grep -cE '"event_type"[[:space:]]*:[[:space:]]*"ORDER_SUBMITTED"' "$journal_file" 2>/dev/null || true)
+            fi
+        elif run_evidence_python "" "import os, sys; sys.exit(0 if os.path.isfile(sys.argv[1]) else 1)" "$journal_file" 2>/dev/null; then
+            order_count=$(run_evidence_python "" '
+import json, sys
+count = 0
+try:
+    with open(sys.argv[1], "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line: continue
+            try:
+                ev = json.loads(line)
+                if ev.get("event_type") == "ORDER_SUBMITTED":
+                    count += 1
+            except Exception: pass
+    print(count)
+except Exception:
+    sys.exit(1)
+' "$journal_file" 2>/dev/null || echo "")
+        fi
+        order_count=$(echo "$order_count" | tr -d '[:space:]')
+
+        if [ "$order_count" = "0" ]; then
             audit_item "18" "Zero Order Submission Evidence" "PASS" \
                 "$journal_file" "0 ORDER_SUBMITTED events" \
                 "Proves no orders were dispatched" "YES" "YES"
+        elif [ -n "$order_count" ]; then
+            audit_item "18" "Zero Order Submission Evidence" "FAIL" \
+                "$journal_file" "${order_count} orders dispatched!" \
+                "Order submission violation detected!" "NO" "YES"
         else
             audit_item "18" "Zero Order Submission Evidence" "FAIL" \
-                "$journal_file" "${real_orders} orders dispatched!" \
-                "Order submission violation detected!" "NO" "YES"
+                "${journal_file:-unknown}" "Evidence unreadable or missing" \
+                "Cannot verify zero-order submission invariant" "NO" "YES"
         fi
     else
         audit_item "18" "Zero Order Submission Evidence" "PASS" \
@@ -839,7 +888,7 @@ cmd_audit() {
 
     # 19. Manifest Cryptographic Sealing
     audit_item "19" "Manifest Cryptographic Sealing" "PASS" \
-        "src/acash/paper/runner.py:440" "sealed: true, manifest_hash, journal_final_hash" \
+        "src/acash/paper/runner.py:440" "sealed_at_utc + manifest_hash + journal_final_hash" \
         "Cryptographically closes session evidence against post-run tampering" "YES" "YES"
 
     # 20. SHA-256 Journal Integrity

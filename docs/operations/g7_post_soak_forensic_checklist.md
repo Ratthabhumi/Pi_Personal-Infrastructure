@@ -323,7 +323,7 @@ Verify that the runtime executed within strict sandboxed limits:
 - `operator_only_recovery == true` (zero autonomous reconnect attempts).
 - Security options: verify `no-new-privileges:true`.
 - Exposed ports: verify zero public ports published (`.NetworkSettings.Ports` empty or localhost only).
-- Order semantics: `no_real_orders=true` is attested by the manifest. Paper infrastructure may contain simulated order events; simulated orders are not real broker orders. Report simulated order count informationally.
+- Order semantics: PaperSessionManifest generally distinguishes simulated paper execution from real broker execution; however, this G7 soak additionally requires zero order submissions under its existing acceptance contract (manifest `total_order_count == 0` and journal `ORDER_SUBMITTED == 0`).
 
 ---
 
