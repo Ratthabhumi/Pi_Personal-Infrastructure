@@ -216,10 +216,9 @@ class TestG7Suite(unittest.TestCase):
                 "strategy_version": "1.0.0",
                 "git_commit": "ec3a903",
                 "config_hash": "c" * 64,
-                "journal_final_hash": prev_hash,
+                "journal_final_hash": prev_hash if sealed else "",
                 "start_time_utc": start_time.isoformat(),
                 "end_time_utc": end_time.isoformat(),
-                "duration_seconds": duration,
                 "total_event_count": bar_count + 1 + (1 if has_order else 0),
                 "total_warning_count": 0,
                 "total_error_count": 0,
@@ -235,9 +234,8 @@ class TestG7Suite(unittest.TestCase):
                 },
                 "final_reconciliation_status": "PASS",
                 "journal_integrity_status": "PASS",
-                "manifest_hash": "m" * 64,
-                "sealed": sealed,
-                "sealed_at_utc": end_time.isoformat(),
+                "manifest_hash": "m" * 64 if sealed else "",
+                "sealed_at_utc": end_time.isoformat() if sealed else "",
             }
             with open(self.manifest_file, "w", encoding="utf-8") as mf:
                 json.dump(manifest_data, mf, indent=2)
@@ -841,6 +839,50 @@ class TestG7Suite(unittest.TestCase):
         self.assertNotEqual(proc.returncode, 0, "Missing evidence must fail closed!")
         self.assertIn("GATE G7 ACCEPTANCE CRITERIA: FAIL", proc.stdout)
         self.assertNotIn("GATE G7 ACCEPTANCE CRITERIA: PASS", proc.stdout)
+
+
+    def test_real_manifest_without_sealed_field_accepted(self):
+        """Regression Test: Canonical PaperSessionManifest (no 'sealed' bool, no 'duration_seconds') is accepted."""
+        self._create_synthetic_evidence(bar_count=360, sealed=True)
+        # Verify synthetic manifest strictly does NOT contain invented fields
+        with open(self.manifest_file, "r", encoding="utf-8") as f:
+            m = json.load(f)
+        self.assertNotIn("sealed", m)
+        self.assertNotIn("duration_seconds", m)
+        self.assertIn("sealed_at_utc", m)
+        self.assertIn("manifest_hash", m)
+        self.assertIn("journal_final_hash", m)
+
+        proc = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("1.1: Manifest sealed status verified", proc.stdout)
+        self.assertIn("sealed_at_utc=", proc.stdout)
+        self.assertIn("5.1: Session duration >= 6.00 continuous hours", proc.stdout)
+
+    def test_fake_sealed_true_without_canonical_hashes_fails(self):
+        """Regression Test: A fake manifest having 'sealed': true but missing canonical hashes fails Check 1.1."""
+        self._create_synthetic_evidence(bar_count=360, sealed=False)
+        # Inject fake 'sealed': true while leaving sealed_at_utc and hashes empty
+        with open(self.manifest_file, "r", encoding="utf-8") as f:
+            m = json.load(f)
+        m["sealed"] = True  # Fake field
+        m["sealed_at_utc"] = ""
+        m["manifest_hash"] = ""
+        m["journal_final_hash"] = ""
+        with open(self.manifest_file, "w", encoding="utf-8") as f:
+            json.dump(m, f, indent=2)
+
+        proc = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("FAIL", proc.stdout)
+        self.assertIn("Missing required canonical sealed manifest fields", proc.stdout)
+
+    def test_snapshots_jsonl_is_audited(self):
+        """Regression Test: .snapshots.jsonl artifact presence and validity is strictly verified."""
+        self._create_synthetic_evidence(bar_count=360, omit_snapshot=True)
+        proc = run_bash([VERIFY_SCRIPT, self.session_id], env=self.test_env)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("Missing or empty", proc.stdout)
 
 if __name__ == "__main__":
     unittest.main()

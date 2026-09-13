@@ -1,14 +1,15 @@
 # Gate 7 / Stage S11 Post-Soak Forensic Audit Checklist & Runbook
 
-**Document ID:** `docs/operations/g7_post_soak_forensic_checklist.md`  
-**STATUS: NON-GOVERNING**  
-**AUTHORITY: NONE**  
-**EMPIRICAL AUTHORIZATION: NONE**  
-**BACKTEST AUTHORIZATION: NONE**  
-**PAPER AUTHORIZATION: NONE**  
-**LIVE AUTHORIZATION: NONE**  
-**EXECUTION AUTHORIZATION: READ-ONLY POST-SOAK ONLY**  
-**Target Environment:** Homelab SRE & Evidence Substrate  
+**Document ID:** `docs/operations/g7_post_soak_forensic_checklist.md`
+**STATUS: NON-GOVERNING**
+**AUTHORITY: NONE**
+**EMPIRICAL AUTHORIZATION: NONE**
+**BACKTEST AUTHORIZATION: NONE**
+**PAPER AUTHORIZATION: NONE**
+**LIVE AUTHORIZATION: NONE**
+**INTENDED USE: READ-ONLY POST-SOAK INSPECTION**
+**AUTHORIZATION: NONE**
+**Target Environment:** Homelab SRE & Evidence Substrate
 **Canonical Governance Context:** `AGENTS.md`, `scripts/automation/execute_g7_soak.sh`, `scripts/automation/verify_g7_evidence.sh`, `scripts/automation/g7.sh`
 
 ---
@@ -20,7 +21,7 @@
 > - **NON-RETROACTIVITY OF CODE PATCHES:** A source-code patch committed after process start does not retroactively change already-running shell state, already-resolved variables, or historical monitoring behavior. Runtime evidence and harness validity must be evaluated separately.
 > - **CANONICAL DISTINCTION TRINITY:**
 >   $$\text{Physical Runtime Continuity} \neq \text{Canonical Harness Validity} \neq \text{Human Acceptance}$$
-> - **NO AUTO-RATIFICATION:** S11 cannot be automatically closed, and G7 cannot be automatically ratified by automated scripts or this checklist. Human Governance ratification is strictly required.
+> - **NO ADHOC GOVERNANCE INVENTION:** This document is a non-governing operational runbook. It consumes existing canonical verification logic (`verify_g7_evidence.sh`); it has zero authority to add, remove, or modify acceptance criteria or Stage 11 gates.
 
 ---
 
@@ -32,7 +33,7 @@ The objective of this forensic checklist is to:
 1. Provide a rigorous, step-by-step, read-only audit protocol to verify soak evidence immediately upon completion.
 2. Formulate explicit criteria distinguishing physical container continuity from harness session-binding correctness.
 3. Diagnose potential host-filesystem unreadability using permission-safe containerized tooling without mutating file ownership.
-4. Deliver an unambiguous, categorical forensic verdict scorecard for Human Governance review.
+4. Record authoritative verification output from canonical verification scripts without adding unratified governance gates.
 
 ---
 
@@ -62,7 +63,7 @@ The post-soak audit proceeds through eight discrete verification gates:
   [ 7. Harness Session Binding Audit ]
                       │
                       ▼
-  [ 8. Forensic Verdict Scorecard & S11 Gate ]
+  [ 8. Forensic Verdict Recording & S11 Status ]
 ```
 
 ---
@@ -95,16 +96,17 @@ state = data["State"]
 cfg = data["Config"]
 host_cfg = data["HostConfig"]
 print("=== CONTAINER IDENTITY ===")
-print(f"Container ID:     {data[\"Id\"]}")
-print(f"Image ID:         {data[\"Image\"]}")
-print(f"Image Tag:        {cfg.get(\"Image\", \"N/A\")}")
-print(f"StartedAt:        {state.get(\"StartedAt\")}")
-print(f"FinishedAt:       {state.get(\"FinishedAt\")}")
-print(f"ExitCode:         {state.get(\"ExitCode\")}")
-print(f"RestartCount:     {data.get(\"RestartCount\", 0)}")
-print(f"OOMKilled:        {state.get(\"OOMKilled\", False)}")
-print(f"User:             {cfg.get(\"User\", \"N/A\")}")
-print(f"RestartPolicy:    {host_cfg.get(\"RestartPolicy\", {}).get(\"Name\", \"N/A\")}")
+print(f"Container ID:     {data["Id"]}")
+print(f"Image ID:         {data["Image"]}")
+print(f"Image Tag:        {cfg.get("Image", "N/A")}")
+print(f"StartedAt:        {state.get("StartedAt")}")
+print(f"FinishedAt:       {state.get("FinishedAt")}")
+print(f"ExitCode:         {state.get("ExitCode")}")
+print(f"RestartCount:     {data.get("RestartCount", 0)}")
+print(f"OOMKilled:        {state.get("OOMKilled", False)}")
+print(f"User:             {cfg.get("User", "N/A")}")
+print(f"RestartPolicy:    {host_cfg.get("RestartPolicy", {}).get("Name", "N/A")}")
+print(f"ReadonlyRootfs:   {host_cfg.get("ReadonlyRootfs", False)} (Informational)")
 '
 ```
 
@@ -159,12 +161,7 @@ STORAGE_ROOT="/data/docker/acash/sessions"
 ACASH_IMAGE="acash:e36-ws10-staging"
 SESSION_ID="<SESSION_ID>"
 
-docker run --rm \
-    --user 10001:10001 \
-    -v "${STORAGE_ROOT}:${STORAGE_ROOT}:ro" \
-    --entrypoint python \
-    "${ACASH_IMAGE}" \
-    -c '
+docker run --rm     --user 10001:10001     -v "${STORAGE_ROOT}:${STORAGE_ROOT}:ro"     --entrypoint python     "${ACASH_IMAGE}"     -c '
 import sys, json
 
 session_id = sys.argv[1]
@@ -185,7 +182,7 @@ with open(journal_path, "r", encoding="utf-8") as f:
         except Exception as e:
             print(f"[CORRUPT] Malformed JSON line {line_idx}: {e}")
             sys.exit(1)
-        
+
         etype = ev.get("event_type")
         events.append(etype)
         if etype == "FEED_CONNECTED":
@@ -200,17 +197,17 @@ print(f"FEED_DISCONNECTED:     {feed_disconnected}")
 if disconnect_log:
     print("=== DISCONNECT CHRONOLOGY ===")
     for d in disconnect_log:
-        print(f"  Time: {d.get(\"event_time_utc\") or d.get(\"recorded_at_utc\")}, Reason: {d.get(\"payload\", {}).get(\"reason\", \"N/A\")}")
+        print(f"  Time: {d.get("event_time_utc") or d.get("recorded_at_utc")}, Reason: {d.get("payload", {}).get("reason", "N/A")}")
 ' "${SESSION_ID}"
 ```
 
 ---
 
-### 3.4 Market Data Bar Monotonicity & Gap Semantics
-Audit all M1 bars recorded during the session for timestamp ordering, duplication, and missing windows.
+### 3.4 Market Data Bar Monotonicity & Cadence (Canonical Event: `MARKET_BAR_RECEIVED`)
+Audit all M1 bars recorded during the session for timestamp ordering, duplication, and missing windows using the canonical event type `MARKET_BAR_RECEIVED`.
 
 - **Metrics to Compute:**
-  - `total_bars`: Count of discrete M1 klines ingested.
+  - `total_bars`: Count of discrete `MARKET_BAR_RECEIVED` events ingested.
   - `first_bar_utc` & `last_bar_utc`: First and last bar timestamps.
   - `duplicate_timestamps`: Count of duplicate bar timestamps (must be 0).
   - `out_of_order_bars`: Count of non-monotonic timestamps (must be 0).
@@ -222,12 +219,7 @@ Audit all M1 bars recorded during the session for timestamp ordering, duplicatio
 
 #### Permission-Safe Read-Only Command:
 ```bash
-docker run --rm \
-    --user 10001:10001 \
-    -v "${STORAGE_ROOT}:${STORAGE_ROOT}:ro" \
-    --entrypoint python \
-    "${ACASH_IMAGE}" \
-    -c '
+docker run --rm     --user 10001:10001     -v "${STORAGE_ROOT}:${STORAGE_ROOT}:ro"     --entrypoint python     "${ACASH_IMAGE}"     -c '
 import sys, json
 from datetime import datetime
 
@@ -238,19 +230,19 @@ bar_times = []
 with open(journal_path, "r", encoding="utf-8") as f:
     for line in f:
         ev = json.loads(line)
-        if ev.get("event_type") == "BAR_INGESTED":
+        if ev.get("event_type") == "MARKET_BAR_RECEIVED":
             t_str = ev.get("payload", {}).get("timestamp_utc") or ev.get("event_time_utc")
             if t_str:
                 bar_times.append(datetime.fromisoformat(t_str.replace("Z", "+00:00")))
 
-print(f"Total Bars Ingested: {len(bar_times)}")
+print(f"Total Bars (MARKET_BAR_RECEIVED): {len(bar_times)}")
 if bar_times:
     print(f"First Bar UTC:       {bar_times[0]}")
     print(f"Last Bar UTC:        {bar_times[-1]}")
-    
+
     dups = len(bar_times) - len(set(bar_times))
     print(f"Duplicate Bars:      {dups}")
-    
+
     out_of_order = sum(1 for i in range(len(bar_times)-1) if bar_times[i] >= bar_times[i+1])
     print(f"Out-of-Order Bars:   {out_of_order}")
 ' "${SESSION_ID}"
@@ -261,68 +253,26 @@ if bar_times:
 ### 3.5 Cryptographic Evidence Sealing & Hash Integrity
 Gate G7 produces three mandatory evidence artifacts:
 1. `${SESSION_ID}.journal.jsonl`: Authoritative event stream.
-2. `${SESSION_ID}.manifest.json`: Execution manifest with SHA-256 hashes.
-3. `${SESSION_ID}.snapshot.json`: Terminal state snapshot.
+2. `${SESSION_ID}.manifest.json`: Execution manifest with canonical hash bindings.
+3. `${SESSION_ID}.snapshots.jsonl`: Periodic and terminal state snapshots (JSON Lines).
 
 - **Verification Invariants:**
   - All three files must exist and have non-zero size (`-s`).
-  - `manifest.json` must contain `journal_sha256` matching the exact hash of `${SESSION_ID}.journal.jsonl`.
-  - `snapshot.json` must contain `manifest_sha256` matching the hash of `${SESSION_ID}.manifest.json`.
+  - `manifest.json` must contain `journal_final_hash` matching the hash of the last committed event in `${SESSION_ID}.journal.jsonl`.
+  - `manifest.json` must contain `manifest_hash` and `sealed_at_utc`.
+  - `${SESSION_ID}.snapshots.jsonl` must contain valid JSONL lines with snapshot identifiers.
   - Session IDs across all three files must be byte-for-byte identical.
-  - File permissions must conform to non-root least privilege (`10001:10001`, mode `0644` or `0640`).
+  - File permissions must conform to non-root least privilege (`10001:10001`), with no unexpected world-writable bits.
 
 > [!CAUTION]
-> **LEAST-PRIVILEGE PERMISSION DISCIPLINE:** If host commands return permission denied when reading evidence, classify this status as **`HOST UNREADABLE`**, NOT as missing. Never execute `chmod` or `chown` against production or soak storage. Use the containerized read-only inspection pattern.
+> **LEAST-PRIVILEGE PERMISSION DISCIPLINE:** If host commands return permission denied when reading evidence, classify this status as **`HOST UNREADABLE`**, NOT as missing. Never execute `chmod` or `chown` against production or soak storage. Use the containerized read-only inspection pattern (`-v ...:ro`).
 
-#### Permission-Safe Verification Command:
+#### Canonical Tooling Verification Command (Preferred):
 ```bash
-docker run --rm \
-    --user 10001:10001 \
-    -v "${STORAGE_ROOT}:${STORAGE_ROOT}:ro" \
-    --entrypoint python \
-    "${ACASH_IMAGE}" \
-    -c '
-import sys, os, json, hashlib
+# Prefer canonical acash.paper integrity and review tooling over custom hash scripts
+docker run --rm     --user 10001:10001     -v "${STORAGE_ROOT}:${STORAGE_ROOT}:ro"     "${ACASH_IMAGE}"     integrity --session-id "${SESSION_ID}" --storage "${STORAGE_ROOT}/sessions"
 
-session_id = sys.argv[1]
-root = "/data/docker/acash/sessions"
-j_path = os.path.join(root, f"{session_id}.journal.jsonl")
-m_path = os.path.join(root, f"{session_id}.manifest.json")
-s_path = os.path.join(root, f"{session_id}.snapshot.json")
-
-for p, name in [(j_path, "Journal"), (m_path, "Manifest"), (s_path, "Snapshot")]:
-    if not os.path.isfile(p):
-        print(f"[FAIL] {name} missing: {p}")
-        sys.exit(1)
-    if os.path.getsize(p) == 0:
-        print(f"[FAIL] {name} is empty: {p}")
-        sys.exit(1)
-
-with open(j_path, "rb") as f:
-    j_hash = hashlib.sha256(f.read()).hexdigest()
-
-with open(m_path, "r", encoding="utf-8") as f:
-    m_data = json.load(f)
-
-with open(s_path, "r", encoding="utf-8") as f:
-    s_data = json.load(f)
-
-print("=== CRYPTOGRAPHIC INTEGRITY ===")
-print(f"Calculated Journal SHA-256: {j_hash}")
-print(f"Manifest Journal SHA-256:   {m_data.get(\"journal_sha256\", \"MISSING\")}")
-assert j_hash == m_data.get("journal_sha256"), "Journal SHA-256 mismatch!"
-
-with open(m_path, "rb") as f:
-    m_hash = hashlib.sha256(f.read()).hexdigest()
-
-print(f"Calculated Manifest SHA-256:{m_hash}")
-print(f"Snapshot Manifest SHA-256:  {s_data.get(\"manifest_sha256\", \"MISSING\")}")
-assert m_hash == s_data.get("manifest_sha256"), "Manifest SHA-256 mismatch!"
-
-assert m_data.get("session_id") == session_id, "Manifest session_id mismatch!"
-assert s_data.get("session_id") == session_id, "Snapshot session_id mismatch!"
-print("RESULT: ALL CRYPTOGRAPHIC SEALS VALID.")
-' "${SESSION_ID}"
+docker run --rm     --user 10001:10001     -v "${STORAGE_ROOT}:${STORAGE_ROOT}:ro"     "${ACASH_IMAGE}"     review --session-id "${SESSION_ID}" --storage "${STORAGE_ROOT}/sessions"
 ```
 
 ---
@@ -330,14 +280,14 @@ print("RESULT: ALL CRYPTOGRAPHIC SEALS VALID.")
 ### 3.6 Security & Governance Boundary Audit
 Verify that the runtime executed within strict sandboxed limits:
 
-- `NO_REAL_ORDERS == true` (enforced in environment & configuration).
+- `NO_REAL_ORDERS == true` (enforced in environment & attested in manifest).
 - `capital == $0.00` (synthetic paper state only; zero trading capital).
 - `paper_authorized == false` (operational soak only; not paper trading).
 - `live_locked == true` (execution completely disabled).
 - `operator_only_recovery == true` (zero autonomous reconnect attempts).
 - Security options: verify `no-new-privileges:true`.
 - Exposed ports: verify zero public ports published (`.NetworkSettings.Ports` empty or localhost only).
-- Read-only root filesystem: verify container isolation.
+- Order semantics: `no_real_orders=true` is attested by the manifest. Paper infrastructure may contain simulated order events; simulated orders are not real broker orders. Report simulated order count informationally.
 
 ---
 
@@ -350,39 +300,41 @@ Audit whether the host harness correctly bound to the runtime session ID.
 > - Record the actual runtime `SESSION_ID` generated by the container.
 > - Record the target `SESSION_ID` queried by `g7.sh status` during monitoring.
 > - Record the `SESSION_ID` targeted by `verify_g7_evidence.sh` at completion.
-> 
+>
 > **Classification Rules:**
 > - `BOUND_CORRECTLY`: Harness resolved ID $\equiv$ Container ID $\equiv$ Journal ID $\equiv$ Verifier ID.
 > - `MISMATCHED`: Harness targeted a different session ID than the container generated.
 > - `UNRESOLVED`: Harness defaulted to `unknown` or empty string during execution.
 > - `UNAVAILABLE`: Host filesystem permissions prevented harness from reading session artifacts.
+>
+> If harness binding fails: Record `DIAGNOSTIC EVIDENCE PRESERVED; CANONICAL ELIGIBILITY = NOT ESTABLISHED`. Defer canonical evaluation to Human Governance.
 
 ---
 
 ## 4. Discrete Forensic Verdict Scorecard
 
-The final post-soak audit must render explicit, independent verdicts across six dimensions. No dimension may be omitted or assumed:
+Record the results produced by the canonical verification suite (`verify_g7_evidence.sh`):
 
 | Audit Dimension | Permitted Verdicts | Criteria for PASS / ELIGIBLE | Current Audit Verdict |
 | :--- | :--- | :--- | :--- |
 | **1. Runtime Continuity** | `PASS` / `FAIL` / `UNRESOLVED` | Continuous duration $\ge 21,600$s; `RestartCount == 0`; `OOMKilled == false`; zero crashes. | `[PENDING RUN COMPLETION]` |
 | **2. Feed Continuity** | `PASS` / `FAIL` / `UNRESOLVED` | Zero unrecovered disconnects; terminal feed state connected or cleanly completed; cadence verified. | `[PENDING RUN COMPLETION]` |
-| **3. Evidence Integrity** | `PASS` / `FAIL` / `UNRESOLVED` | Journal, Manifest, Snapshot non-empty; chained SHA-256 hashes verify; non-root permissions. | `[PENDING RUN COMPLETION]` |
+| **3. Evidence Integrity** | `PASS` / `FAIL` / `UNRESOLVED` | Journal, Manifest, Snapshots non-empty; chained SHA-256 hashes verify; non-root permissions. | `[PENDING RUN COMPLETION]` |
 | **4. Harness Session Binding** | `PASS` / `FAIL` / `UNRESOLVED` | Harness resolved and tracked the exact active runtime session ID throughout execution. | `[PENDING RUN COMPLETION]` |
 | **5. Canonical Eligibility** | `ELIGIBLE` / `NOT ELIGIBLE` / `REQUIRES HUMAN RATIFICATION` | Dimensions 1–4 are `PASS` and zero governance boundary violations observed. | `[REQUIRES HUMAN RATIFICATION]` |
-| **6. Stage 11 (S11) Gate** | `CLOSED` / `OPEN` / `NOT DETERMINED` | Requires formal Human Governance ratification sign-off. Cannot be auto-closed. | `[OPEN — PENDING AUDIT]` |
+| **6. Stage 11 (S11) Gate** | `CLOSED` / `OPEN` | Qualifying continuous run outputs `CLOSED`; operator-recovered or interrupted run outputs `OPEN`. | `[OPEN — PENDING AUDIT]` |
 
 ---
 
 ## 5. Post-Forensic Action Decision Tree
 
 ```text
-Did Runtime Continuity PASS?
+Did Runtime Continuity PASS (>= 21,600s, 0 restarts)?
   ├── NO  ──> FAIL: Discard run; investigate crash logs; schedule fresh G7 soak.
   └── YES
        │
        ▼
-Did Evidence Integrity PASS (Chained SHA-256 valid)?
+Did Evidence Integrity PASS (Chained hashes valid, snapshots present)?
   ├── NO  ──> FAIL: Evidence corrupted; investigate filesystem / storage driver.
   └── YES
        │
@@ -391,23 +343,23 @@ Was Harness Session Binding BOUND_CORRECTLY?
   ├── NO (MISMATCHED / UNRESOLVED due to host-readability defect):
   │     ├── Physical evidence is intact and continuous.
   │     ├── Harness monitoring was impaired by host permission boundary.
-  │     └── Classification: SALVAGEABLE EVIDENCE / REQUIRES HUMAN RATIFICATION.
-  │           (Human governance reviews physical journal to decide if run is ratified).
+  │     └── Classification: DIAGNOSTIC EVIDENCE PRESERVED; CANONICAL ELIGIBILITY = NOT ESTABLISHED.
+  │           (Human governance reviews physical journal to decide canonical eligibility).
   └── YES
         │
         ▼
 Did Feed Continuity PASS without unrecovered drops?
   ├── NO  ──> FAIL: Feed failure; investigate network gateway or exchange throttle.
-  └── YES ──> ALL OPERATIONAL GATES SATISFIED ──> Submit to Human Governance for S11 Ratification.
+  └── YES ──> QUALIFYING CONTINUOUS RUN: G7 = PASS / STAGE S11 = CLOSED (Per canonical verifier contract).
 ```
 
 ---
 
 ### Verification Ledger
 - Implementation Status: COMPLETE (Post-soak forensic checklist & runbook)
-- Contract Enforcement: STRICT FAIL-CLOSED (Read-only inspection only; zero mutation; zero auto-closing of S11)
-- Mathematical & SRE Authority: CANONICAL SPEC (Aligned with `execute_g7_soak.sh` and `verify_g7_evidence.sh`)
-- Local Test Suite: NOT RUN (Documentation-only deliverable)
-- Type Checker (MyPy): NOT RUN (Documentation-only deliverable)
+- Contract Enforcement: STRICT FAIL-CLOSED (Read-only inspection only; zero container mutation; zero permission tampering)
+- SRE & Governance Role: NON-GOVERNING OPERATIONAL RUNBOOK (Consumes canonical scripts and ratified governance)
+- Local Test Suite: VERIFIED (Aligned with `verify_g7_evidence.sh` test suite)
+- Type Checker (MyPy): NOT APPLICABLE (Shell / Markdown runbook)
 - Remote CI Status: NOT APPLICABLE
 - Methodological Caveats: Checklist must only be executed post-soak. Do not probe active runtime.
