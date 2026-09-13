@@ -36,3 +36,11 @@ scrape_configs:
         labels:
           tier: 'execution-infrastructure'
           mode: 'paper-staging'
+
+  # 5. Scrape ACASH Shadow Alpha Tournament operational metrics
+  - job_name: 'acash-shadow'
+    static_configs:
+      - targets: ['acash-shadow:9102']
+        labels:
+          tier: 'execution-infrastructure'
+          mode: 'shadow-tournament'
