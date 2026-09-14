@@ -468,7 +468,7 @@ services:
       - "com.centurylinklabs.watchtower.enable=false"
 
   acash-dashboard:
-    image: acash-dashboard:e17b389
+    image: acash-dashboard:e659e75
     container_name: acash-dashboard
     restart: unless-stopped
     read_only: true
