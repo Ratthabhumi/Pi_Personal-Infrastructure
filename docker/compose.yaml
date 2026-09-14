@@ -517,7 +517,7 @@ services:
     # NO_REAL_ORDERS=true | CANONICAL CAPITAL = $0.00 | PROMETHEUS SCRAPE PORT = 9102
     profiles:
       - "acash-shadow"
-    image: acash:shadow-tournament-e17b389
+    image: acash:shadow-tournament-bb6d49c
     container_name: acash-shadow
     restart: "no"
     user: "10001:10001"
@@ -537,7 +537,7 @@ services:
       - ACASH_EXECUTION_MODE=SHADOW_TOURNAMENT_SIMULATED_ONLY
       - ACASH_CANONICAL_CAPITAL=0
       - NO_REAL_ORDERS=true
-      - ACASH_GIT_COMMIT=e17b3893e19ba3ce25530daf764ca7964cb0c755
+      - ACASH_GIT_COMMIT=bb6d49c41fefef42c288ebdfce597572433423f9
     command:
       - "tournament"
       - "--provider=binance"
@@ -545,7 +545,7 @@ services:
       - "--storage=/data/docker/acash/tournament"
       - "--api-port=9103"
       - "--metrics-port=9102"
-      - "--git-commit=e17b3893e19ba3ce25530daf764ca7964cb0c755"
+      - "--git-commit=bb6d49c41fefef42c288ebdfce597572433423f9"
       - "--max-data-age-ms=65000"
     deploy:
       resources:
