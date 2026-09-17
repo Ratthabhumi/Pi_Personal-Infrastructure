@@ -525,8 +525,10 @@ services:
     security_opt:
       - no-new-privileges:true
     networks:
-      - proxy
-      - acash_staging
+      proxy:
+        aliases:
+          - acash-shadow
+      acash_staging:
     volumes:
       - /data/docker/acash/tournament:/data/docker/acash/tournament:rw
     tmpfs:
