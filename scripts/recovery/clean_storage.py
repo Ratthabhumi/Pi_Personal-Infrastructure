@@ -155,7 +155,7 @@ def main(old_uuid, owner):
         # Otherwise formatting could leave an old boot-critical alias entry dangling.
         evaluated = json.loads(command(['findmnt', '--fstab', '--evaluate', '--json', '--output', 'SOURCE,TARGET']))
         sources = []
-        for row in evaluated.get('filesystems', []):
+        for row in flatten(evaluated.get('filesystems', [])):
             source = row.get('source', '').split('[', 1)[0]
             if source.startswith('/dev/'):
                 sources.append(str(Path(source).resolve()))
