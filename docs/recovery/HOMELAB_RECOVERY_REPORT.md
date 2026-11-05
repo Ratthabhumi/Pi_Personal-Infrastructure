@@ -1,0 +1,13 @@
+# Homelab recovery — 5 November 2026
+
+Overall **PARTIAL / privileged recovery BLOCKED**. FACT: Windows key-authenticated SSH now reaches the existing Ubuntu host as mew. Baseline evidence is [sanitized live JSON](evidence/baseline-20261105.json). Repository COMPLETED badges are historical.
+
+Executed: read-only live OS/storage/service/network discovery; source audit; isolated source hardening and regression tests. No host package/service/network/storage changes, reboot, production checkout edits or ACASH deployment. New owner-only inspection tools are staged in the login user's home, outside persistent application data.
+
+FACT: host reports degraded due to networkd-wait-online; SSH/Tailscale active/enabled; exit default routes advertised; forwarding enabled. Docker/Ansible/Fail2Ban absent. HDD ext4 unmounted; /data and /ssd-data absent. RAM approximately 3.75 GiB, available approximately 3.26 GiB; root approximately 86 GiB free at snapshot. Baseline JSON contains exact counts. The root USB device reports rotational=true: its media type as SSD is not independently established by that flag.
+
+EVIDENCE: latest pre-change CI run 34826033986 failed; old CD failed. Source contains unchecked signing-key failure, unsafe dashboard port, unattended-update enablement, recursive ownership/password-reset/data deletion and privileged whole-VG extension. Corrected source removes automatic deployment/storage mutation, fails closed on bootstrap/restore authority and exact mounted storage/config identity, restricts restore to two explicit telemetry services, removes broad permission/reset/delete operations, disables insecure Traefik port and makes Watchtower opt-in. Existing source app credentials/config samples are NOT approved recovery credentials. No source changes are applied to the host.
+
+AUTHORIZATION: owner approved safe recovery and Draft PR; destructive storage, broad permission changes, real trading, automatic deployment and implicit financial authority remain excluded. BLOCKER: sudo requires interactive owner authentication; no password is collected or passwordless sudo created. Next action: run the single staged, hash-checked read-only HDD inspection described in OWNER_DECISION_PACKET.md. Do not run the historical full bootstrap.
+
+Tests: see PR checks and regression tests. Synthetic/mocked mount tests and syntax validation do not prove HDD contents, successful restore, service restart, backup consistency, Exit Node client egress or travel readiness. No deployed services/health checks claimed. Before travel, obtain an independent always-on uplink and physical recovery path.

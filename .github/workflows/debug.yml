@@ -1,13 +1,11 @@
-name: Debug Server
+name: Storage operations are manual
 on:
-  push:
-    paths:
-      - 'debug.txt'
+  workflow_dispatch:
+permissions:
+  contents: read
 jobs:
-  debug:
-    runs-on: self-hosted
+  storage-notice:
+    runs-on: ubuntu-latest
     steps:
-      - name: Expand LVM via chroot
-        run: |
-          docker run --rm --privileged -v /:/host alpine chroot /host sh -c "lvextend -l +100%FREE /dev/mapper/ubuntu--vg-ubuntu--lv && resize2fs /dev/mapper/ubuntu--vg-ubuntu--lv"
-          df -h /
+      - name: Preserve disks and free LVM extents
+        run: echo 'No remote storage mutation. Follow the reviewed storage recovery runbook.'

@@ -14,6 +14,13 @@
     docker_users:
       - mew
 
+  pre_tasks:
+    - name: Require reviewed bootstrap and remote-access recovery authority
+      ansible.builtin.assert:
+        that:
+          - homelab_bootstrap_authorized | default(false) | bool
+        fail_msg: Bootstrap requires storage, network and rollback review before host changes.
+
   tasks:
     - name: 📦 [Phase 1] System Essentials, Tools & Automated Updates
       ansible.builtin.include_tasks:

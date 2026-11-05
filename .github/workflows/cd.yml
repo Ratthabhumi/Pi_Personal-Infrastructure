@@ -1,30 +1,14 @@
-name: Continuous Deployment (CD)
-
+name: Recovery deployment gate
 on:
-  push:
-    branches: [ "main" ]
-    paths:
-      - 'docker/**'
-      - 'ansible/**'
-      - 'scripts/**'
-      - 'Makefile'
-
+  workflow_dispatch:
+permissions:
+  contents: read
 jobs:
-  deploy-to-homelab:
-    needs: [] # In a real environment, this would depend on the CI job
-    runs-on: self-hosted
-    
+  recovery-notice:
+    runs-on: ubuntu-latest
     steps:
-      - name: 🛎️ Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: 🚀 Deploy Infrastructure to Homelab
-        run: |
-          echo "Starting autonomous deployment via local runner..."
-          # Since the runner is on the server, we can just run the apply-local script
-          # We export SUDO_ASKPASS or just ensure passwordless sudo is configured for the runner user.
-          # For security, we just run the app deployment playbook directly which doesn't require sudo for docker (mew is in docker group).
-          
-          ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/01_deploy_homelab.yml --connection=local --limit=homelab
-          
-          echo "✅ Deployment Successful!"
+      - name: Require inspected storage and interactive owner authority
+        run: >-
+          echo 'Automatic self-hosted deployment is disabled.
+          Use the controlled playbook after exact storage/config review;
+          never provision passwordless sudo for this workflow.'

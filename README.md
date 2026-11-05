@@ -1,3 +1,7 @@
+# Recovery status — 5 November 2026
+
+Historical COMPLETED badges below describe prior repository work, not the freshly inspected host. Live host recovery is PARTIAL/BLOCKED; read [the current recovery report](docs/recovery/HOMELAB_RECOVERY_REPORT.md). Avoid old make/bootstrap/full-stack commands. Docker/Ansible are absent, HDD data is not yet inspected, and iPad-only uplink is not travel-ready. Historical demo credentials below must never be installed/reset as production credentials; existing recovered credentials require private review.
+
 # 🏛️ Enterprise HomeLab & AI Cloud Infrastructure Monorepo
 
 ![Architecture Mode: Production & GitOps](https://img.shields.io/badge/Architecture-GitOps%20%2F%20IaC-blue?style=for-the-badge)

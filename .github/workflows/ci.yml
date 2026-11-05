@@ -28,3 +28,14 @@ jobs:
 
       - name: ⚙️ Lint Ansible Playbooks
         run: ansible-lint ansible/playbooks/*.yml
+
+      - name: Test recovery safety without root or real disk mounts
+        run: python -m unittest discover -s tests -p 'test_recovery*.py' -v
+
+      - name: Validate Ansible syntax
+        run: |
+          ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/00_bootstrap_server.yml --syntax-check
+          ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/01_deploy_homelab.yml --syntax-check
+
+      - name: Validate compose without printing interpolated secrets
+        run: docker compose -f docker/compose.yaml config --quiet --no-interpolate

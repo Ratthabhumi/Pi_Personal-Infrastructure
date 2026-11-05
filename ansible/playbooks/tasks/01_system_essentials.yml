@@ -26,7 +26,6 @@
       - curl
       - git
       - htop
-      - neofetch
       - jq
       - tree
       - vim
@@ -45,6 +44,7 @@
     question: unattended-upgrades/enable_auto_updates
     value: "true"
     vtype: boolean
+  when: homelab_automatic_updates_authorized | default(false) | bool
 
 - name: Inject Developer Ergonomics and auto-navigation aliases into interactive shell (.bashrc)
   ansible.builtin.blockinfile:
