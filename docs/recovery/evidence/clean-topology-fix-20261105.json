@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-05",
+  "originalResult": {
+    "foundation": "NOT_EXECUTED",
+    "formatting": "NOT_EXECUTED",
+    "errorCode": "PHYSICAL_PARENT_NOT_PROVEN",
+    "status": "BLOCKED",
+    "formatCommandWasInvoked": false,
+    "stage": "live-storage-safety-gates"
+  },
+  "liveReproduction": {
+    "original": {
+      "topLevelCount": 9,
+      "safetyGate": "PHYSICAL_PARENT_NOT_PROVEN",
+      "anyChildren": false
+    },
+    "explicitTree": {
+      "topLevelCount": 3,
+      "safetyGate": "PASS",
+      "anyChildren": true
+    }
+  },
+  "rootCause": "VERIFIED on actual Acer: lsblk JSON with PATH but no NAME is flat unless --tree is explicit",
+  "fix": "Use explicit --tree in the production block snapshot command; keep all physical-parent and system-disk exclusions",
+  "tests": "PASS 7 on actual Linux, including real PATH-only lsblk parent-edge integration, without root/format",
+  "priorEvidence": "Original private result/source/logs retained; new source in separate v2 bundle and separate clean-result-v2.json",
+  "attemptMarker": "Same persistent root attempt guard retained; marker absence must still be verified inside corrected owner-root invocation; no clearing",
+  "status": "PREPARED_CORRECTION_NOT_EXECUTED_WITH_SUDO",
+  "sourceSha256": "04503FA80BC34C19C1CF390E5CD61032223F50F0D60CB9F545CBC8A0E654E089",
+  "ownerShellSHA256": "43068B6B3E1018F144407EB9876011A5AEA4AEE40E46C574289DE1C4660B3FA8",
+  "ownerOutput": "Now prints sanitized status/stage/errorCode and distinguishes sudo authentication failure from preflight failure; never raw UUID/argv/logs",
+  "sshTailscale": "active after failure and v2 staging"
+}

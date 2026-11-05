@@ -1,6 +1,9 @@
 import copy
 import importlib.util
 import os
+import json
+import shutil
+import subprocess
 from pathlib import Path
 import unittest
 from unittest.mock import patch
@@ -28,6 +31,18 @@ def inventory():
 
 @unittest.skipUnless(os.name == 'posix', 'Linux block-device safety module')
 class CleanStorageSafety(unittest.TestCase):
+    def test_actual_path_only_lsblk_has_parent_edges_for_real_partitions(self):
+        if not shutil.which('lsblk'):
+            self.skipTest('lsblk absent')
+        tree = json.loads(subprocess.run(clean.BLOCK_TREE_COMMAND, capture_output=True, text=True, check=True).stdout)
+        nodes = list(clean.flatten(tree['blockdevices']))
+        partitions = [n for n in nodes if n.get('type') == 'part']
+        if not partitions:
+            self.skipTest('No exposed partitions to validate topology')
+        parents = {c['path'] for n in nodes for c in n.get('children', [])}
+        for partition in partitions:
+            self.assertIn(partition['path'], parents, 'PATH-only JSON flattened a physical partition')
+
     def test_uuid_resolves_renamed_hdd_without_assuming_sda(self):
         tree = inventory()
         target = clean.validate_target(tree, UUID, '/dev/sdz1')

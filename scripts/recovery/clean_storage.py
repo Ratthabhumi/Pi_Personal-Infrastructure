@@ -21,6 +21,12 @@ class GateError(Exception):
     pass
 
 
+# lsblk JSON is flat when NAME is omitted unless --tree is explicit. PATH-only
+# output is deliberate; require topology rather than relying on a display column.
+BLOCK_TREE_COMMAND = ['lsblk', '--tree', '-b', '-p', '-J', '-o',
+                      'PATH,TYPE,SIZE,FSTYPE,UUID,MOUNTPOINTS,MAJ:MIN']
+
+
 def flatten(nodes):
     for node in nodes:
         yield node
@@ -105,7 +111,7 @@ def main(old_uuid, owner):
         info = os.stat(device)
         if not stat.S_ISBLK(info.st_mode):
             raise GateError('NOT_BLOCK_DEVICE')
-        tree = json.loads(command(['lsblk', '-b', '-p', '-J', '-o', 'PATH,TYPE,SIZE,FSTYPE,UUID,MOUNTPOINTS,MAJ:MIN']))
+        tree = json.loads(command(BLOCK_TREE_COMMAND))
         target = validate_target(tree, old_uuid, device)
         if command(['blkid', '-p', '-s', 'UUID', '-o', 'value', device]) != old_uuid:
             raise GateError('FRESH_UUID_PROBE_MISMATCH')
