@@ -1,0 +1,99 @@
+{
+  "schema": "pi-host-audit/v1",
+  "observed_at_utc": "2026-11-05T07:01:54Z",
+  "collection": "authenticated SSH as non-root user mew; read-only checks",
+  "os": {
+    "pretty_name": "Ubuntu 24.04.5 LTS",
+    "kernel": "6.8.0-139-generic",
+    "uptime_minutes": 725
+  },
+  "storage": {
+    "data_mount": "/data",
+    "data_source": "/dev/sda1",
+    "data_fstype": "ext4",
+    "data_options": "rw,nosuid,nodev,noatime",
+    "data_size": "916G",
+    "data_avail": "870G",
+    "data_use_percent": 1,
+    "fstab_entry": "UUID=<redacted> /data ext4 defaults,nofail,nodev,nosuid,noatime 0 2",
+    "system_disk_preserved": true,
+    "installer_media_preserved": true
+  },
+  "directories": {
+    "/data": "root:root 0755",
+    "/data/acash": "root:root 0700 empty",
+    "/data/backups": "root:root 0700 empty",
+    "/data/docker": "root:root 0700",
+    "/data/logs": "root:root 0750 empty"
+  },
+  "docker": {
+    "service_active": true,
+    "service_enabled": true,
+    "data_root": "/data/docker/engine",
+    "data_root_source": "/etc/docker/daemon.json",
+    "mount_dependency": "/etc/systemd/system/docker.service.d/10-data-mount.conf RequiresMountsFor=/data plus exact UUID ExecStartPre",
+    "live_restore": true,
+    "log_driver": "json-file",
+    "log_max_size": "10m",
+    "log_max_file": 3
+  },
+  "monitoring": {
+    "node_exporter_http": 200,
+    "listener": "127.0.0.1:9100",
+    "process_user": "nobody",
+    "collectors": ["cpu", "meminfo", "loadavg", "time", "uname"],
+    "host_http_acceptance": "PASS"
+  },
+  "services": {
+    "ssh": {"active": true, "enabled": true},
+    "tailscaled": {"active": true, "enabled": true},
+    "docker": {"active": true, "enabled": true},
+    "systemd-timesyncd": {"active": true},
+    "systemd-networkd-wait-online": {"enabled": true, "state": "failed", "blocking": false}
+  },
+  "time": {
+    "synchronized": true,
+    "ntp_service": "active",
+    "timezone": "Etc/UTC"
+  },
+  "dns": {
+    "resolved": true,
+    "upstream": "iPad hotspot router",
+    "github_resolution": "PASS"
+  },
+  "timers": {
+    "systemd_timer_support": "PASS",
+    "installed_timer_count": 17
+  },
+  "memory": {
+    "total_kib": 3930580,
+    "available_kib": 3291368,
+    "swap_total_kib": 3930108,
+    "swap_free_kib": 3930108
+  },
+  "network": {
+    "listeners_non_loopback": ["0.0.0.0:22", "[::]:22", "udp 41641 (Tailscale)"],
+    "tailscale_backend": "Running",
+    "tailscale_self_online": true,
+    "ip_forward": 1,
+    "ufw_enabled": false,
+    "ufw_observation": "ENABLED=no in /etc/ufw/ufw.conf"
+  },
+  "power": {
+    "sleep_state": "s2idle [deep]",
+    "logind_overrides": "none",
+    "lid_switch_effective": "suspend (built-in default)",
+    "closed_lid_survival": "NOT GUARANTEED"
+  },
+  "backup": {
+    "homelab_backup_timer": "not-found",
+    "off_device_destination": "NONE",
+    "same_hdd_copy_is_offsite": false
+  },
+  "warnings": [
+    "UFW is disabled; SSH 22 listens on all interfaces.",
+    "Default logind policy suspends on lid close.",
+    "No off-device backup destination exists.",
+    "The only WAN uplink is an iPad hotspot."
+  ]
+}

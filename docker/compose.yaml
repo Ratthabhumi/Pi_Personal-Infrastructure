@@ -24,7 +24,6 @@ services:
     ports:
       - "${TRAEFIK_HTTP_PORT:-80}:80"
       - "${TRAEFIK_HTTPS_PORT:-443}:443"
-      - "8080:8080"
     environment:
       - TZ=${TZ:-Asia/Bangkok}
       - DOCKER_API_VERSION=1.44
@@ -34,7 +33,7 @@ services:
       - /data/docker/traefik/data:/etc/traefik/acme
       - /data/docker/traefik/config:/etc/traefik/conf.d:ro
     command:
-      - "--api.insecure=true"
+      - "--api.insecure=false"
       - "--api.dashboard=true"
       - "--ping=true"
       - "--providers.docker=true"
@@ -152,7 +151,7 @@ services:
       - no-new-privileges:true
     environment:
       - TZ=${TZ:-Asia/Bangkok}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:?Set GRAFANA_PASSWORD privately before compose validation}
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - /data/docker/grafana/data:/var/lib/grafana
@@ -176,7 +175,7 @@ services:
       - no-new-privileges:true
     environment:
       - TZ=${TZ:-Asia/Bangkok}
-      - ADMIN_TOKEN=${VAULTWARDEN_ADMIN_TOKEN}
+      - ADMIN_TOKEN=${VAULTWARDEN_ADMIN_TOKEN:?Set VAULTWARDEN_ADMIN_TOKEN privately before compose validation}
       - WEBSOCKET_ENABLED=true
     volumes:
       - /data/docker/vaultwarden/data:/data
@@ -213,6 +212,7 @@ services:
       - "traefik.http.services.adguard.loadbalancer.server.port=3000"
 
   watchtower:
+    profiles: [automatic-updates-owner-approved]
     image: containrrr/watchtower:latest
     container_name: watchtower
     restart: unless-stopped
@@ -286,7 +286,7 @@ services:
     environment:
       - TZ=${TZ:-Asia/Bangkok}
       - POSTGRES_USER=${POSTGRES_USER:-admin}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD privately before compose validation}
       - POSTGRES_DB=${POSTGRES_DB:-homelab}
     volumes:
       - /data/docker/postgres/data:/var/lib/postgresql/data
@@ -302,7 +302,7 @@ services:
     environment:
       - TZ=${TZ:-Asia/Bangkok}
       - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL:-admin@mew.lab}
-      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD:?Set PGADMIN_DEFAULT_PASSWORD privately before compose validation}
     volumes:
       - /data/docker/pgadmin/data:/var/lib/pgadmin
       - /data/docker/pgadmin/config/servers.json:/pgadmin4/servers.json:ro
@@ -326,7 +326,7 @@ services:
       - TZ=${TZ:-Asia/Bangkok}
       - POSTGRES_HOST=postgres
       - POSTGRES_USER=${POSTGRES_USER:-admin}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD privately before compose validation}
       - POSTGRES_DB=${POSTGRES_DB:-homelab}
       - SCHEDULE=@daily
       - BACKUP_KEEP_DAYS=7
@@ -342,7 +342,7 @@ services:
     image: redis:7-alpine
     container_name: redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD} --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:?Set REDIS_PASSWORD privately before compose validation} --maxmemory 256mb --maxmemory-policy allkeys-lru
     security_opt:
       - no-new-privileges:true
     environment:
@@ -352,7 +352,7 @@ services:
     networks:
       - internal
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?Set REDIS_PASSWORD privately before compose validation}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -365,12 +365,12 @@ services:
       - no-new-privileges:true
     environment:
       - TZ=${TZ:-Asia/Bangkok}
-      - AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET=${AUTHELIA_JWT_SECRET}
-      - AUTHELIA_SESSION_SECRET=${AUTHELIA_SESSION_SECRET}
-      - AUTHELIA_STORAGE_ENCRYPTION_KEY=${AUTHELIA_STORAGE_ENCRYPTION_KEY}
+      - AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET=${AUTHELIA_JWT_SECRET:?Set AUTHELIA_JWT_SECRET privately before compose validation}
+      - AUTHELIA_SESSION_SECRET=${AUTHELIA_SESSION_SECRET:?Set AUTHELIA_SESSION_SECRET privately before compose validation}
+      - AUTHELIA_STORAGE_ENCRYPTION_KEY=${AUTHELIA_STORAGE_ENCRYPTION_KEY:?Set AUTHELIA_STORAGE_ENCRYPTION_KEY privately before compose validation}
       - AUTHELIA_STORAGE_POSTGRES_USERNAME=${POSTGRES_USER:-admin}
-      - AUTHELIA_STORAGE_POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - AUTHELIA_SESSION_REDIS_PASSWORD=${REDIS_PASSWORD}
+      - AUTHELIA_STORAGE_POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD privately before compose validation}
+      - AUTHELIA_SESSION_REDIS_PASSWORD=${REDIS_PASSWORD:?Set REDIS_PASSWORD privately before compose validation}
     volumes:
       - /data/docker/authelia/config:/config
     networks:
@@ -399,9 +399,9 @@ services:
       - POSTGRES_HOST=postgres
       - POSTGRES_DB=homelab
       - POSTGRES_USER=${POSTGRES_USER:-admin}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD privately before compose validation}
       - REDIS_HOST=redis
-      - REDIS_HOST_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_HOST_PASSWORD=${REDIS_PASSWORD:?Set REDIS_PASSWORD privately before compose validation}
       - NEXTCLOUD_TRUSTED_DOMAINS=cloud.mew.lab 100.116.167.3 cloud.homelab.ts.net nextcloud
       - OVERWRITEPROTOCOL=https
       - OVERWRITECLIURL=https://cloud.mew.lab

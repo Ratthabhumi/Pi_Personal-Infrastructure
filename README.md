@@ -1,3 +1,7 @@
+# Current status - host ready for ACASH, 24/7 hardening pending
+
+Storage, Docker data-root and Node Exporter are verified PASS from a live host audit. The host layer is ready for a separately deployed ACASH workload. **Do not run the formatter or monitoring-finish packet again.** Remaining blockers: UFW disabled, lid-close suspend, no off-device backup, iPad-hotspot-only uplink. See [host contract](docs/recovery/PI_HOST_READY_FOR_ACASH.md), [owner action](docs/recovery/OWNER_DECISION_PACKET.md) and [actual report](docs/recovery/HOMELAB_RECOVERY_REPORT.md). Source tests are not runtime or travel acceptance.
+
 # 🏛️ Enterprise HomeLab & AI Cloud Infrastructure Monorepo
 
 ![Architecture Mode: Production & GitOps](https://img.shields.io/badge/Architecture-GitOps%20%2F%20IaC-blue?style=for-the-badge)

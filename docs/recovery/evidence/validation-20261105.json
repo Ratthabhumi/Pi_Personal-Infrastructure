@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-05",
+  "windows": {
+    "yamlDocumentsParsed": 12,
+    "pythonNonrootAndInvalidUUID": "PASS 2 tests",
+    "composeQuietNoInterpolation": "PASS, installed Compose 5.6.1; no daemon or container start",
+    "linuxOnlyAndAnsible": "SKIPPED on Windows"
+  },
+  "linuxHost": {
+    "ansibleGate": "SKIPPED, CLI absent",
+    "mockedStorageSafety": "PASS 3 tests without root or actual mount",
+    "syntax": "PASS python compile and owner shell bash -n",
+    "sourceInspectorSha256": "0bc229c68f277a1c202d695d999b8b210d4b980f0b8c724927dc46d18b3a36c2"
+  },
+  "live": {
+    "storageContents": "NOT INSPECTED",
+    "mountOrDiskMutation": "NOT EXECUTED",
+    "sudo": "OWNER_INTERACTION_REQUIRED",
+    "firewallOrTailscaleMutation": "NOT EXECUTED",
+    "exitNodeClientEgress": "NOT TESTED",
+    "backupRestore": "NOT TESTED",
+    "acashDeployment": "NOT AUTHORIZED / NOT EXECUTED",
+    "packageInstallation": "NOT EXECUTED",
+    "ssh": "PASS key authentication"
+  },
+  "github": {
+    "ownerCheckout": "98c6c8521eb8710940f76a361f4f4a3ad0a029 retained",
+    "oldPiCi": "34826033986 FAIL ignore-errors reproduced from archived log",
+    "acashMain": "a6eae543b2551ea27d96e1f848417e36af9d39b8",
+    "piBase": "3ce27f09e742768633c23a5d0746a004bc3a1727",
+    "acashPr80": "4207935bd2477c490e0f36db26b13db98ca7b8a5 Draft/Open"
+  }
+}

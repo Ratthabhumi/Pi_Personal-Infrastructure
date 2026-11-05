@@ -1,0 +1,188 @@
+{
+  "observedUtc": "2026-11-05T00:01:52.996359+00:00",
+  "scope": "Live SSH, unprivileged read-only snapshot; not storage restore or Exit Node client E2E",
+  "os": "Ubuntu 24.04.5 LTS",
+  "kernel": "6.8.0-139-generic",
+  "arch": "x86_64",
+  "cpus": 4,
+  "memoryKiB": {
+    "MemTotal": 3930580,
+    "MemAvailable": 3423060,
+    "SwapTotal": 3930108,
+    "SwapFree": 3930108
+  },
+  "rootFreeBytes": 92682518528,
+  "systemHealth": "degraded",
+  "failedUnitCount": 1,
+  "networkWaitOnlineFailed": true,
+  "disks": {
+    "blockdevices": [
+      {
+        "name": "sda",
+        "size": 1000204886016,
+        "type": "disk",
+        "fstype": null,
+        "mountpoints": [
+          null
+        ],
+        "rota": true,
+        "tran": "sata",
+        "children": [
+          {
+            "name": "sda1",
+            "size": 1000203091968,
+            "type": "part",
+            "fstype": "ext4",
+            "mountpoints": [
+              null
+            ],
+            "rota": true,
+            "tran": null
+          }
+        ]
+      },
+      {
+        "name": "sdb",
+        "size": 500107862016,
+        "type": "disk",
+        "fstype": null,
+        "mountpoints": [
+          null
+        ],
+        "rota": true,
+        "tran": "usb",
+        "children": [
+          {
+            "name": "sdb1",
+            "size": 1127219200,
+            "type": "part",
+            "fstype": "vfat",
+            "mountpoints": [
+              "/boot/efi"
+            ],
+            "rota": true,
+            "tran": null
+          },
+          {
+            "name": "sdb2",
+            "size": 2147483648,
+            "type": "part",
+            "fstype": "ext4",
+            "mountpoints": [
+              "/boot"
+            ],
+            "rota": true,
+            "tran": null
+          },
+          {
+            "name": "sdb3",
+            "size": 496831037440,
+            "type": "part",
+            "fstype": "LVM2_member",
+            "mountpoints": [
+              null
+            ],
+            "rota": true,
+            "tran": null,
+            "children": [
+              {
+                "name": "ubuntu--vg-ubuntu--lv",
+                "size": 107374182400,
+                "type": "lvm",
+                "fstype": "ext4",
+                "mountpoints": [
+                  "/"
+                ],
+                "rota": true,
+                "tran": null
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "sdc",
+        "size": 15479597056,
+        "type": "disk",
+        "fstype": null,
+        "mountpoints": [
+          null
+        ],
+        "rota": true,
+        "tran": "usb",
+        "children": [
+          {
+            "name": "sdc1",
+            "size": 15478521856,
+            "type": "part",
+            "fstype": "vfat",
+            "mountpoints": [
+              null
+            ],
+            "rota": true,
+            "tran": null
+          }
+        ]
+      }
+    ]
+  },
+  "services": {
+    "ssh": {
+      "active": "active",
+      "enabled": "enabled"
+    },
+    "tailscaled": {
+      "active": "active",
+      "enabled": "enabled"
+    },
+    "docker": {
+      "active": "inactive",
+      "enabled": "not-found"
+    },
+    "ufw": {
+      "active": "active",
+      "enabled": "enabled"
+    },
+    "fail2ban": {
+      "active": "inactive",
+      "enabled": "not-found"
+    },
+    "unattended-upgrades": {
+      "active": "active",
+      "enabled": "enabled"
+    }
+  },
+  "tools": {
+    "git": true,
+    "python3": true,
+    "docker": false,
+    "ansible": false,
+    "lvs": true,
+    "ufw": true,
+    "fail2ban-client": false
+  },
+  "tailscale": {
+    "backend": "Running",
+    "online": false,
+    "exitNodeOption": true,
+    "defaultRoutesAdvertised": true
+  },
+  "forwarding": {
+    "net.ipv4.ip_forward": "1",
+    "net.ipv6.conf.all.forwarding": "1"
+  },
+  "defaultRouteUsesWifi": true,
+  "dnsLookupSucceeded": true,
+  "pathsPresent": {
+    "/data": false,
+    "/data/docker": false,
+    "/data/docker/.env": false,
+    "/ssd-data": false,
+    "/var/lib/docker": false
+  },
+  "explicitLidPolicy": [],
+  "knownRepoCheckouts": [],
+  "sudoNoninteractive": false,
+  "storageData": "NOT INSPECTED; privileged read-only mount required",
+  "travelUplink": "OWNER-REPORTED iPad-only; no independent always-on uplink verified"
+}

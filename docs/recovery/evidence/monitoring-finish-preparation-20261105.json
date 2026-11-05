@@ -1,0 +1,26 @@
+{
+  "date": "2026-11-05",
+  "actual": {
+    "foundation": "PARTIAL: Docker/Compose/Ansible packages installed, docker active",
+    "directories": "PASS from actual owner result",
+    "dataMount": "PASS ext4 rw",
+    "monitoring": "FAIL host HTTP ConnectionRefusedError errno111, no host TCP9100 listener; exporter process observed",
+    "newUUID": "Recorded privately; verified equal to live /data mount",
+    "fstab": "PASS static validation, no reboot",
+    "writeReadCleanup": "PASS from actual owner result",
+    "formatting": "PASS"
+  },
+  "cause": "UNKNOWN until root runtime/namespace inspection; no claim that a Docker-specific defect is proven",
+  "finishPacket": {
+    "unknownCause": "Fail closed; no automatic changes",
+    "conditionalRepair": "Only if exact old profile/running restricted exporter/internal network and healthy container-namespace metrics prove failed host publication, recreate only Node Exporter on host network with process-bound 127.0.0.1:9100",
+    "networkTradeoff": "Host network namespace visibility/outbound access replaces internal bridge; explicit process loopback listener, no published ports, non-root/no capabilities/read-only/64MiB/0.25CPU/64PIDs retained",
+    "originalResults": "Preserved unchanged; new separate finish-result.json",
+    "scope": "No mkfs, repartition, mount/fstab writes, apt, Docker engine restart or format marker reset",
+    "stage": "Checksum/compile/shell verified on actual host; root finish NOT EXECUTED",
+    "candidateSha256": "2C976C8608FEB9615D07CF3A37EA404956006C2C3CD0EF3ACCF8F00DF1B96B08",
+    "helperSha256": "41D298926BADD5ACD661D8B2D29029554D5210C49F4CB7F7BA68534F0BCA0CCE"
+  },
+  "tests": "PASS 4 Linux finish regressions: evidence gate, loopback/security/resource checks, metric completeness and non-root zero-command guard",
+  "acceptance": "Actual root finish, external SSH/Exit Node egress, reboot and off-disk backups still pending"
+}

@@ -1,0 +1,29 @@
+name: homelab-minimal
+services:
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: homelab-node-exporter
+    user: "65534:65534"
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 64m
+    cpus: 0.25
+    pids_limit: 64
+    # Bind the process itself to loopback; do not depend on an internal bridge
+    # publishing a host port. Host network visibility is deliberate for host metrics.
+    network_mode: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+    command:
+      - --web.listen-address=127.0.0.1:9100
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --collector.disable-defaults
+      - --collector.cpu
+      - --collector.meminfo
+      - --collector.loadavg
+      - --collector.time
+      - --collector.uname

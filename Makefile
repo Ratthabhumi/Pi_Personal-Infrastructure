@@ -42,17 +42,12 @@ apply-local:
 	bash scripts/automation/bootstrap_local.sh
 
 deploy-prod:
-	@echo "[*] Deploying Unified Production Stack to /data/docker (Windows Compatible)..."
-	ssh mew@homelab 'sudo mkdir -p /data/docker'
-	scp -r docker/* mew@homelab:/data/docker/
-	ssh mew@homelab 'cd /data/docker && docker compose up -d --remove-orphans'
+	@echo 'BLOCKED: use the reviewed, gated Ansible telemetry restore playbook.'
+	@exit 1
 
 rebuild-server:
-	@echo "[*] 🚨 INITIATING FULL SERVER REBUILD (OS + Application Stack)..."
-	@echo "    Ensure you run this from an environment with Ansible installed (e.g., WSL, Linux, or on the server itself via make apply-local)"
-	ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/00_bootstrap_server.yml
-	ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/01_deploy_homelab.yml
-	@echo "[*] ✅ REBUILD COMPLETE! System is fully restored and ready."
+	@echo 'BLOCKED: do not rebuild over unverified existing disks.'
+	@exit 1
 
 # ------------------------------------------------------------------------------
 # TERRAFORM IAC (CLOUDFLARE DNS MANAGEMENT)
@@ -74,7 +69,7 @@ tf-apply:
 # ------------------------------------------------------------------------------
 stack-up:
 	@echo "[*] Launching Production Stack..."
-	cd /data/docker && docker compose up -d --remove-orphans
+	echo 'BLOCKED: explicit service/UUID/config authorization required.' && exit 1
 
 stack-down:
 	@echo "[*] Shutting down Production Stack..."
