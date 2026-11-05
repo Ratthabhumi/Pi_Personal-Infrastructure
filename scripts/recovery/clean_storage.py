@@ -53,7 +53,9 @@ def validate_target(tree, old_uuid, resolved):
     return target
 
 
-def validate_fstab(text, old_uuid, device):
+def validate_fstab(text, old_uuid, device, evaluated_sources=()):
+    if device in evaluated_sources:
+        raise GateError('EXISTING_FSTAB_DEVICE_ALIAS_CONFLICT')
     for line in text.splitlines():
         if not line.strip() or line.lstrip().startswith('#'):
             continue
@@ -149,7 +151,15 @@ def main(old_uuid, owner):
         if Path('/etc/fstab').is_symlink():
             raise GateError('FSTAB_SYMLINK_REQUIRES_REVIEW')
         old_fstab = Path('/etc/fstab').read_text()
-        validate_fstab(old_fstab, old_uuid, device)
+        # Resolve LABEL/PARTUUID/by-id aliases as well as the explicitly approved UUID.
+        # Otherwise formatting could leave an old boot-critical alias entry dangling.
+        evaluated = json.loads(command(['findmnt', '--fstab', '--evaluate', '--json', '--output', 'SOURCE,TARGET']))
+        sources = []
+        for row in evaluated.get('filesystems', []):
+            source = row.get('source', '').split('[', 1)[0]
+            if source.startswith('/dev/'):
+                sources.append(str(Path(source).resolve()))
+        validate_fstab(old_fstab, old_uuid, device, sources)
         command(['findmnt', '--verify', '--tab-file', '/etc/fstab'])
         # Query may legitimately return 2 when a label is absent.
         label_query = ['blkid', '-t', 'LABEL=HOMELAB_DATA', '-o', 'device']

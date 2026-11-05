@@ -66,6 +66,9 @@ class CleanStorageSafety(unittest.TestCase):
                       '/dev/sdz1 /old ext4 defaults 0 2', 'LABEL=HOMELAB_DATA /old ext4 defaults 0 2']:
             with self.assertRaises(clean.GateError):
                 clean.validate_fstab(original + entry, UUID, '/dev/sdz1')
+        for alias in ['LABEL=historical_data', 'PARTUUID=historical-partition', '/dev/disk/by-id/historical-part1']:
+            with self.assertRaises(clean.GateError):
+                clean.validate_fstab(original + alias + ' /old ext4 defaults 0 2', UUID, '/dev/sdz1', ['/dev/sdz1'])
 
     def test_unprivileged_execution_never_invokes_any_command(self):
         with patch.object(clean.os, 'geteuid', return_value=1000), patch.object(clean.subprocess, 'run') as run:

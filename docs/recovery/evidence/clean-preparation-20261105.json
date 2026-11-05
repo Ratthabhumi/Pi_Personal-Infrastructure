@@ -23,14 +23,14 @@
   "stagedPacket": {
     "windowsWrapper": "Invoke-OwnerClean.ps1; live peer address plus strict original homelab host-key checking",
     "privateSourceOldUUID": "Host-only packet; excluded from public Git",
-    "sourceSha256": "E4DFDC965D3DB64AC260F6EB1FCADB191F001275078EB3BC3897E4D94BFFEA27",
+    "sourceSha256": "9142B3D2976A3C4D5ADEBEDEE9FD0222C2185B8220199E7D7EFBD11E62EA2956",
     "status": "READY, checksum/compile/bash syntax verified on host as unprivileged owner",
     "minimalComposeSha256": "DC2F38857AB4EC45CADDD9266B5BC431C9AC0CA6B5C8A8A5B3DDAB34E8C44662",
     "foundationSha256": "B8E7209ADAD0AB5CDACEFA67DA4387C113E9B730297A5E954886B33D15D356B5"
   },
   "tests": {
     "pythonCompile": "PASS",
-    "linuxPureAndNonrootGuards": "PASS 6 tests; no real format, mount, sudo or package install",
+    "linuxPureAndNonrootGuards": "PASS 6 tests including evaluated LABEL/PARTUUID/by-id fstab alias rejection; no live format/mount/sudo/package installation",
     "stagedNonrootRefusal": "PASS INTERACTIVE_OWNER_SUDO_REQUIRED, commands=[], formatting NOT_EXECUTED",
     "bashSyntax": "PASS on host",
     "composeConfig": "PASS local quiet validation",
