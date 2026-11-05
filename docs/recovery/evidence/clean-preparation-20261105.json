@@ -1,0 +1,46 @@
+{
+  "date": "2026-11-05",
+  "decision": "Latest explicit owner permission authorizes clean formatting only the approved old-UUID 1TB partition; supersedes attached no-format/use-root plan",
+  "oldIdentity": {
+    "filesystem": "ext4",
+    "mounted": false,
+    "uuidMatched": true,
+    "bytes": 1000203091968,
+    "livePrivilegedRecheck": "MANDATORY immediately before mkfs",
+    "systemBootLvmOnDifferentDisk": true,
+    "installerMediaExcluded": true
+  },
+  "execution": {
+    "foundation": "NOT EXECUTED",
+    "directories": "NOT EXECUTED",
+    "newUUID": "NOT AVAILABLE",
+    "dataMount": "NOT EXECUTED",
+    "fstabPersistence": "NOT EXECUTED",
+    "acash": "No deployment, data, broker, job or authority change",
+    "monitoring": "NOT EXECUTED",
+    "formatting": "NOT EXECUTED"
+  },
+  "stagedPacket": {
+    "windowsWrapper": "Invoke-OwnerClean.ps1; live peer address plus strict original homelab host-key checking",
+    "privateSourceOldUUID": "Host-only packet; excluded from public Git",
+    "sourceSha256": "E4DFDC965D3DB64AC260F6EB1FCADB191F001275078EB3BC3897E4D94BFFEA27",
+    "status": "READY, checksum/compile/bash syntax verified on host as unprivileged owner",
+    "minimalComposeSha256": "DC2F38857AB4EC45CADDD9266B5BC431C9AC0CA6B5C8A8A5B3DDAB34E8C44662",
+    "foundationSha256": "B8E7209ADAD0AB5CDACEFA67DA4387C113E9B730297A5E954886B33D15D356B5"
+  },
+  "tests": {
+    "pythonCompile": "PASS",
+    "linuxPureAndNonrootGuards": "PASS 6 tests; no real format, mount, sudo or package install",
+    "stagedNonrootRefusal": "PASS INTERACTIVE_OWNER_SUDO_REQUIRED, commands=[], formatting NOT_EXECUTED",
+    "bashSyntax": "PASS on host",
+    "composeConfig": "PASS local quiet validation",
+    "actualRootWorkflow": "NOT TESTED",
+    "powershellParse": "PASS"
+  },
+  "rootAccess": "BLOCKED: interactive owner sudo required; no credential requested/stored",
+  "network": "MagicDNS lookup failed; same host verified via unique online Tailscale peer with StrictHostKeyChecking=yes; SSH/Tailscale services still active",
+  "travel": "Independent uplink still not verified",
+  "retryPolicy": "Persistent root lock and one-attempt marker; no automatic reformat or marker clearing",
+  "irreversibility": "Authorized old filesystem deletion has no rollback; fstab backup cannot restore data",
+  "privacy": "Real old/new UUID, device command details and root logs remain in owner-private result, not public Git"
+}

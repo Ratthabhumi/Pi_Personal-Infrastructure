@@ -1,3 +1,5 @@
+Current decision update — 5 November 2026: owner explicitly approved clean formatting of the old-UUID-bound 1 TB partition and new /data storage. Legacy restoration/inspection instructions are superseded. Execution remains pending interactive sudo. See OWNER_CLEAN_STORAGE_DECISION_20261105.md and OWNER_DECISION_PACKET.md. Earlier host snapshots below remain evidence of their observation time.
+
 # ACASH infrastructure handoff — plan only
 
 FACT: GitHub main refreshed to a6eae543b2551ea27d96e1f848417e36af9d39b8; Draft/open PR #80 head 4207935bd2477c490e0f36db26b13db98ca7b8a5. Existing Windows checkout was inspected read-only at that PR head. AGENTS.md requires single-source governance, USD 0.00 capital, NO_REAL_ORDERS=true and separate human authority for research admission, data, paper/live and trading changes. No ACASH file/runtime/credential/governance change was made.

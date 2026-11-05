@@ -1,3 +1,5 @@
+Current decision update — 5 November 2026: owner explicitly approved clean formatting of the old-UUID-bound 1 TB partition and new /data storage. Legacy restoration/inspection instructions are superseded. Execution remains pending interactive sudo. See OWNER_CLEAN_STORAGE_DECISION_20261105.md and OWNER_DECISION_PACKET.md. Earlier host snapshots below remain evidence of their observation time.
+
 # Exit Node acceptance
 
 | Test | Result | Evidence/limit |

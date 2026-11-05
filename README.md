@@ -1,6 +1,6 @@
-# Recovery status — 5 November 2026
+# Clean-storage status — 5 November 2026
 
-Historical COMPLETED badges below describe prior repository work, not the freshly inspected host. Live host recovery is PARTIAL/BLOCKED; read [the current recovery report](docs/recovery/HOMELAB_RECOVERY_REPORT.md). Avoid old make/bootstrap/full-stack commands. Docker/Ansible are absent, HDD data is not yet inspected, and iPad-only uplink is not travel-ready. Historical demo credentials below must never be installed/reset as production credentials; existing recovered credentials require private review.
+Owner authorized fresh formatting of only the approved approximately 1 TB HDD partition, preserving OS/SSH/Tailscale and installer media. The reviewed owner-sudo packet then mounts /data and provisions minimal Docker/Compose/Ansible plus bounded loopback monitoring. **PREPARED / NOT EXECUTED**. No legacy restore or trading deployment. See [current owner action](docs/recovery/OWNER_DECISION_PACKET.md) and [clean decision](docs/recovery/OWNER_CLEAN_STORAGE_DECISION_20261105.md). Historical COMPLETED badges below are not live-host acceptance.
 
 # 🏛️ Enterprise HomeLab & AI Cloud Infrastructure Monorepo
 

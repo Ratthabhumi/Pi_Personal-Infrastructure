@@ -1,11 +1,15 @@
-# Owner decisions and one immediate action
+# One owner action — clean the approved HDD and install minimal foundation
 
-Only immediate action needed: run the staged read-only storage inspection through the existing SSH route. The staged shell verifies the Python script SHA-256, requests sudo interactively, inspects only the approved approximately 1 TB ext4 UUID read-only/no replay and writes sanitized JSON under the login user's private state directory. It does not format, permanently mount, install, deploy, change SSH/Tailscale/firewall or read secret contents.
+Deletion is already authorized. Only interactive sudo authentication remains; no further deletion confirmation or password sharing is required. The previously staged read-only inspection is superseded. Do not execute that old packet.
+
+Run this ONE new command from Windows PowerShell:
 
 ```powershell
-ssh -t mew@homelab bash /home/mew/.local/share/homelab-recovery-20261105/inspect-approved-storage.sh
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File "C:\Users\MewMew\.codex\worktrees\homelab-recovery\Pi_Personal-Infrastructure\scripts\recovery\Invoke-OwnerClean.ps1"
 ```
 
-Enter the Ubuntu password locally in that terminal only. Tell Codex the inspection ran; do not paste credentials/raw application files. If it fails, preserve the result and stop; do not rerun bootstrap or format. Root is required because the normal account cannot inspect the unmounted block device. No passwordless sudo is requested. Script digest and private UUID binding are staged locally on the host; public Git contains neither secret values nor host UUID.
+The Windows wrapper selects the unique online homelab peer from the existing Tailscale connection if MagicDNS is unavailable, while retaining the existing homelab host key and StrictHostKeyChecking=yes. It never edits DNS, SSH trust or authentication. The remote packet verifies all source SHA-256 hashes, authenticates sudo locally, then rechecks the approved UUID, approximately 1 TB size, partition/system/installer exclusions and absence of mounts before formatting ONLY that partition. It sets HOMELAB_DATA, creates a new UUID/fstab mount at /data, verifies synthetic I/O, creates root-only directories, then installs official Docker/Compose/Ansible and the loopback-only bounded monitoring profile. It does not restore applications/secrets or deploy ACASH. Source files are linked in Draft PR #1 for review. No repartition, OS reinstall, LVM growth, reauthentication, public dashboard or passwordless sudo.
 
-Remaining decisions after evidence: permanent data mount/verified restore selection; independent home uplink if hotspot leaves; physical recovery contact; explicitly bounded package/Docker/firewall/lid changes after inspection; privately reviewed credential/backup contracts. Do not accept unresolved risks merely to declare travel-ready. No subscription, full-stack deployment, trading or automatic-update change has been approved/executed.
+Wait for the result marker and tell Codex **clean setup ran**. Do not paste passwords or the raw private JSON. The JSON is under the login user's private state directory and includes the actual new UUID/phase/commands for Codex to sanitize. If BLOCKED/failed/disconnected, stop: do not run again, remove attempt markers or retry formatting. The persistent root marker prevents a second attempt; package/service repair must be based on the current result.
+
+Remaining decisions: independent continuous home uplink if the iPad leaves, physical recovery path, off-disk backups and future service/data scopes. None are solved by formatting HDD. Existing unattended-upgrades was already active and is not enabled/disabled here. Real mobile Exit Node egress and reboot survival still require actual evidence.

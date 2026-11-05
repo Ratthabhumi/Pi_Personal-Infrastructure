@@ -1,3 +1,5 @@
+Current decision update — 5 November 2026: owner explicitly approved clean formatting of the old-UUID-bound 1 TB partition and new /data storage. Legacy restoration/inspection instructions are superseded. Execution remains pending interactive sudo. See OWNER_CLEAN_STORAGE_DECISION_20261105.md and OWNER_DECISION_PACKET.md. Earlier host snapshots below remain evidence of their observation time.
+
 # Travel remote-access runbook
 
 Current status **NOT TRAVEL-READY**. FACT: SSH/Tailscale are reachable now; sole owner-reported internet is iPad hotspot. EVIDENCE: default route uses Wi-Fi; no independent always-on uplink or remote-power recovery verified. A hotspot that leaves the home disconnects this Exit Node.

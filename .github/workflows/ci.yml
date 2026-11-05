@@ -38,4 +38,7 @@ jobs:
           ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/01_deploy_homelab.yml --syntax-check
 
       - name: Validate compose without printing interpolated secrets
-        run: docker compose -f docker/compose.yaml config --quiet --no-interpolate
+        run: |
+          docker compose -f docker/compose.yaml config --quiet --no-interpolate
+          docker compose -f docker/compose.minimal.yaml config --quiet
+          bash -n scripts/recovery/provision_foundation.sh
