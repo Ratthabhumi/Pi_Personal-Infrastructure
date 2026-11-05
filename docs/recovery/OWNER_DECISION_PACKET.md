@@ -1,21 +1,15 @@
-## Corrected v2 — actual preflight result
+# One action — finish monitoring only
 
-Owner sudo authentication DID succeed. The original invocation stopped at live-storage-safety-gates / PHYSICAL_PARENT_NOT_PROVEN with formatting=NOT_EXECUTED and no mkfs command in its report. Old filesystem remains visible; SSH/Tailscale active. Verified on the actual host: PATH-only lsblk JSON without --tree returns 9 flat entries; adding --tree returns 3 disk trees and the same physical-parent gate passes. This was a source bug, not evidence of a wrong disk or failed password.
+**HDD formatting succeeded. Do not run Invoke-OwnerClean.ps1 again.** Docker/Compose/Ansible are installed. Only monitoring HTTP acceptance is currently failing; the original result's foundation=NOT_EXECUTED field was inaccurate.
 
-Production snapshot now explicitly requests --tree. Seven Linux regressions pass, including an integration check of real lsblk parent edges. v2 uses a separate bundle/result while retaining original evidence and the same root one-attempt lock/marker; it never clears a marker. The corrected root action must still verify its absence and every safety gate before formatting. The local Windows command below is updated to v2. No actual format, new UUID, mount, packages or monitoring acceptance has occurred. The v2 owner packet prints sanitized result fields so a preflight failure is visible instead of only a closed connection. See evidence/clean-topology-fix-20261105.json.
-
-# One owner action — clean the approved HDD and install minimal foundation
-
-Deletion is already authorized. Only interactive sudo authentication remains; no further deletion confirmation or password sharing is required. The previously staged read-only inspection is superseded. Do not execute that old packet.
-
-Run this ONE new command from Windows PowerShell:
+Run this NEW service-only packet in Windows PowerShell:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File "C:\Users\MewMew\.codex\worktrees\homelab-recovery\Pi_Personal-Infrastructure\scripts\recovery\Invoke-OwnerClean.ps1"
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File "C:\Users\MewMew\.codex\worktrees\homelab-recovery\Pi_Personal-Infrastructure\scripts\recovery\Invoke-OwnerFinish.ps1"
 ```
 
-The Windows wrapper selects the unique online homelab peer from the existing Tailscale connection if MagicDNS is unavailable, while retaining the existing homelab host key and StrictHostKeyChecking=yes. It never edits DNS, SSH trust or authentication. The remote packet verifies all source SHA-256 hashes, authenticates sudo locally, then rechecks the approved UUID, approximately 1 TB size, partition/system/installer exclusions and absence of mounts before formatting ONLY that partition. It sets HOMELAB_DATA, creates a new UUID/fstab mount at /data, verifies synthetic I/O, creates root-only directories, then installs official Docker/Compose/Ansible and the loopback-only bounded monitoring profile. It does not restore applications/secrets or deploy ACASH. Source files are linked in Draft PR #1 for review. No repartition, OS reinstall, LVM growth, reauthentication, public dashboard or passwordless sudo.
+Owner sudo is required for Docker inspection/recreation; enter the password locally only. No formatter, partition, mount/fstab write, package install, engine restart or attempt-marker reset is present. It first proves the existing UUID/data-root and exact source/runtime state. If metrics work inside the exporter namespace but fail on the host, it may recreate ONLY this reviewed monitoring service once.
 
-Wait for the result marker and tell Codex **clean setup ran**. Do not paste passwords or the raw private JSON. The JSON is under the login user's private state directory and includes the actual new UUID/phase/commands for Codex to sanitize. If BLOCKED/failed/disconnected, stop: do not run again, remove attempt markers or retry formatting. The persistent root marker prevents a second attempt; package/service repair must be based on the current result.
+The candidate uses host networking with the process explicitly listening on 127.0.0.1:9100 and no published ports. It therefore shares host-network visibility/egress instead of an internal bridge. It retains non-root UID, no capabilities, no-new-privileges, read-only filesystem, CPU/PID/RAM limits and only read-only /proc,/sys mounts. No Docker socket/private data/credentials or public dashboard. Unknown cause/profile drift stops without changes. The owner action runs this concrete scoped repair, not a generic shell/deployment.
 
-Remaining decisions: independent continuous home uplink if the iPad leaves, physical recovery path, off-disk backups and future service/data scopes. None are solved by formatting HDD. Existing unattended-upgrades was already active and is not enabled/disabled here. Real mobile Exit Node egress and reboot survival still require actual evidence.
+Wait for FINISH_RESULT and send only that sanitized summary. If it fails, stop; never rerun clean or clear markers. The original clean report is retained and finish-result.json is separate. Root finish execution and successful metrics remain pending; original storage is already accepted. External client Exit Node, independent uplink, reboot recovery and off-disk backups remain separate work.

@@ -1,6 +1,6 @@
-# Clean-storage status — 5 November 2026
+# Current status — storage passed, monitoring finish pending
 
-Owner authorized fresh formatting of only the approved approximately 1 TB HDD partition, preserving OS/SSH/Tailscale and installer media. The reviewed owner-sudo packet then mounts /data and provisions minimal Docker/Compose/Ansible plus bounded loopback monitoring. **PREPARED / NOT EXECUTED**. No legacy restore or trading deployment. See [current owner action](docs/recovery/OWNER_DECISION_PACKET.md) and [clean decision](docs/recovery/OWNER_CLEAN_STORAGE_DECISION_20261105.md). Historical COMPLETED badges below are not live-host acceptance.
+Actual owner execution formatted the approved HDD and mounted /data; Docker/Compose/Ansible are installed. **Do not run the formatter again.** Monitoring HTTP failed and a service-only diagnosis/conditional repair is prepared. See [current finish command](docs/recovery/OWNER_DECISION_PACKET.md) and [actual report](docs/recovery/HOMELAB_RECOVERY_REPORT.md). Overall PARTIAL; source tests and historical COMPLETED badges are not runtime/travel acceptance.
 
 # 🏛️ Enterprise HomeLab & AI Cloud Infrastructure Monorepo
 

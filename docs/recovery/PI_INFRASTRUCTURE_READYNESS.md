@@ -1,13 +1,7 @@
-## Corrected v2 — actual preflight result
+# Pi readiness — actual progress
 
-Owner sudo authentication DID succeed. The original invocation stopped at live-storage-safety-gates / PHYSICAL_PARENT_NOT_PROVEN with formatting=NOT_EXECUTED and no mkfs command in its report. Old filesystem remains visible; SSH/Tailscale active. Verified on the actual host: PATH-only lsblk JSON without --tree returns 9 flat entries; adding --tree returns 3 disk trees and the same physical-parent gate passes. This was a source bug, not evidence of a wrong disk or failed password.
+PASS: approved format, new UUID-backed writable /data, static fstab validation, synthetic I/O cleanup and narrow directory permissions, from actual owner result plus live UUID/mount verification. Docker/Compose/Ansible packages installed; SSH/Tailscale/Docker active. Original system/installer disks preserved.
 
-Production snapshot now explicitly requests --tree. Seven Linux regressions pass, including an integration check of real lsblk parent edges. v2 uses a separate bundle/result while retaining original evidence and the same root one-attempt lock/marker; it never clears a marker. The corrected root action must still verify its absence and every safety gate before formatting. The local Windows command below is updated to v2. No actual format, new UUID, mount, packages or monitoring acceptance has occurred. The v2 owner packet prints sanitized result fields so a preflight failure is visible instead of only a closed connection. See evidence/clean-topology-fix-20261105.json.
+FAIL: monitoring host HTTP endpoint refuses connections; exporter process exists. Root-only namespace/runtime diagnosis and conditional single-service repair are prepared, not executed. Source tests do not establish the network cause.
 
-# Pi minimal readiness
-
-PASS: authorized SSH key route; source preparation; current old-UUID match and unmounted approximately 1 TB layout observed without privilege. CI/mock results are source checks only.
-
-PREPARED: single authorized owner-root format/mount/foundation/monitoring packet with fail-closed identity gates, one-attempt record, signed package sources, HDD-backed Docker, log limits, exact mount dependency and loopback non-root monitoring.
-
-BLOCKED: interactive sudo execution. NOT EXECUTED: formatting/new UUID/fstab/mount/Docker/Ansible/monitoring. NOT TESTED: service restart/reboot/client Exit Node/off-disk backup restore. No complete/production/travel-ready claim.
+Use Invoke-OwnerFinish.ps1 only. Never repeat formatting or package bootstrap. Local foundation remains PARTIAL until metrics/resource/security checks pass. Reboot/Exit Node client egress/off-disk restore/independent travel uplink NOT TESTED or BLOCKED. ACASH integration is not production/trading authority.

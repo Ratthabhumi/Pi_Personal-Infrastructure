@@ -249,6 +249,7 @@ def main(old_uuid, owner):
         report['checks']['fstabStaticValidation'] = 'PASS; actual boot/reboot NOT TESTED'
         report['checks']['directories'] = 'PASS root-owned 0700; logs 0750; no recursive ownership changes'
         report['stage'] = 'minimal-foundation'
+        report['foundation'] = 'IN_PROGRESS'
         command(['bash', str(Path(__file__).with_name('provision_foundation.sh')), new_uuid], mutation=True)
         report['foundation'] = 'PASS'
         report['versions'] = {
@@ -277,6 +278,8 @@ def main(old_uuid, owner):
                 foundation_state = root_state / 'foundation-checkpoint.json'
                 if foundation_state.is_file():
                     report['foundationCheckpoint'] = json.loads(foundation_state.read_text())
+                    if report['foundationCheckpoint'].get('status') == 'FAIL':
+                        report['foundation'] = 'PARTIAL_FAILED'
                 result = root_state / f'result-{os.getpid()}.json'
                 with result.open('x') as f:
                     f.write(json.dumps(report, indent=2))

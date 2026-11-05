@@ -11,12 +11,14 @@ services:
     mem_limit: 64m
     cpus: 0.25
     pids_limit: 64
-    ports:
-      - "127.0.0.1:9100:9100"
+    # Bind the process itself to loopback; do not depend on an internal bridge
+    # publishing a host port. Host network visibility is deliberate for host metrics.
+    network_mode: host
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
     command:
+      - --web.listen-address=127.0.0.1:9100
       - --path.procfs=/host/proc
       - --path.sysfs=/host/sys
       - --collector.disable-defaults
@@ -25,7 +27,3 @@ services:
       - --collector.loadavg
       - --collector.time
       - --collector.uname
-    networks: [metrics]
-networks:
-  metrics:
-    internal: true

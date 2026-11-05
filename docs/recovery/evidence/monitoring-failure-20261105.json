@@ -1,0 +1,29 @@
+{
+  "originalResult": {
+    "status": "BLOCKED",
+    "stage": "minimal-foundation",
+    "formatting": "PASS",
+    "foundation": "NOT_EXECUTED",
+    "checks": {
+      "oldIdentitySystemDiskInstallerAndMountExclusions": "PASS",
+      "dataMountWriteReadbackCleanup": "PASS",
+      "fstabStaticValidation": "PASS; actual boot/reboot NOT TESTED",
+      "directories": "PASS root-owned 0700; logs 0750; no recursive ownership changes"
+    },
+    "foundationCheckpoint": {
+      "status": "FAIL",
+      "phase": "monitoring-http-and-limit-acceptance",
+      "exitCode": 1,
+      "line": 99
+    }
+  },
+  "liveNewUuidMatchesMountedData": true,
+  "dataExt4": true,
+  "dataWritable": true,
+  "installedPackages": [
+    "ansible=9.2.0+dfsg-0ubuntu5",
+    "docker-ce=5:29.9.3-1~ubuntu.24.04~noble",
+    "docker-compose-plugin=5.7.0-1~ubuntu.24.04~noble"
+  ],
+  "packageQueryExit": 0
+}

@@ -113,7 +113,9 @@ container=json.loads(subprocess.run(['docker','inspect','homelab-node-exporter']
 assert container['State']['Running']
 assert container['HostConfig']['Memory']==64*1024*1024
 assert container['HostConfig']['ReadonlyRootfs']
-assert container['HostConfig']['PortBindings']['9100/tcp'][0]['HostIp']=='127.0.0.1'
+assert container['HostConfig']['NetworkMode']=='host'
+assert '--web.listen-address=127.0.0.1:9100' in container['Config']['Cmd']
+assert not container['HostConfig'].get('PortBindings')
 print('MINIMAL_MONITORING_LOCAL_HTTP_AND_LIMITS_PASS')
 PY
 printf '%s\n' FOUNDATION_PASS

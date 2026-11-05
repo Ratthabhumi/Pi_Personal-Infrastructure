@@ -1,3 +1,5 @@
+Current observation — 5 November 2026: authorized format and /data acceptance passed; Docker/Compose/Ansible are installed, monitoring host HTTP failed. Do not run the clean/restore packets again. Use the service-only finish action in OWNER_DECISION_PACKET.md. Earlier snapshots below are historical.
+
 # Pi clean-infrastructure handoff
 
 Current scope is fresh HDD storage plus minimal foundation, not legacy restore. Latest explicit owner clean-storage decision supersedes the old no-format/use-root attachment. Existing source safeguards from Draft PR #1 remain: no push-triggered self-hosted deploy/LVM extension, broad chown/delete/password reset, blind pull/orphan removal or automatic full stack.
