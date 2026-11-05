@@ -1,6 +1,4 @@
-Current observation — 5 November 2026: authorized format and /data acceptance passed; Docker/Compose/Ansible are installed, monitoring host HTTP failed. Do not run the clean/restore packets again. Use the service-only finish action in OWNER_DECISION_PACKET.md. Earlier snapshots below are historical.
-
-Current decision update — 5 November 2026: owner explicitly approved clean formatting of the old-UUID-bound 1 TB partition and new /data storage. Legacy restoration/inspection instructions are superseded. Execution remains pending interactive sudo. See OWNER_CLEAN_STORAGE_DECISION_20261105.md and OWNER_DECISION_PACKET.md. Earlier host snapshots below remain evidence of their observation time.
+Current observation - 5 November 2026 (live host audit): storage acceptance PASS, Docker data-root PASS, Node Exporter loopback HTTP 200 PASS, SSH/Tailscale/Docker PASS. The earlier monitoring failure is closed; use the 24/7 host hardening action in OWNER_DECISION_PACKET.md. Earlier snapshots below are historical.
 
 # Exit Node acceptance
 

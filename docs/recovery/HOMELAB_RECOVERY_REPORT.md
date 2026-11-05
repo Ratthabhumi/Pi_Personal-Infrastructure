@@ -1,15 +1,35 @@
-# Current result — HDD formatted, monitoring acceptance pending
+# Homelab recovery report — current result
 
-**PARTIAL. Do not run Invoke-OwnerClean.ps1 or any formatter again.** Actual owner v2 result confirms formatting PASS, new UUID captured, ext4 /data mounted writable, synthetic I/O cleanup PASS, fstab static verification PASS and root-only directory creation PASS. Live unprivileged verification confirms the recorded new UUID matches /data. Original clean result/logs and destructive-attempt marker are preserved.
+Date: 5 November 2026. Supersedes the earlier "PARTIAL / MONITORING FAIL" reading; that failure is closed and its evidence is kept for history.
 
-Installed package evidence: ansible 9.2.0+dfsg-0ubuntu5, docker-ce 5:29.9.3-1~ubuntu.24.04~noble, docker-compose-plugin 5.7.0-1~ubuntu.24.04~noble. SSH, Tailscale and Docker services are active. The original foundation=NOT_EXECUTED field is a reporting defect: the script reached monitoring-http-and-limit-acceptance after installation. Current truthful classification is FOUNDATION PARTIAL / MONITORING FAIL. Source reporting now marks IN_PROGRESS/PARTIAL_FAILED appropriately; the historical result is not rewritten.
+## Current state
 
-FACT: Node Exporter process is present, but host 127.0.0.1:9100 refuses connections (errno 111) and no host TCP9100 listener is present. Underlying root/network cause is NOT PROVEN from that alone. Evidence: monitoring-failure-20261105.json. No package reinstall or Docker engine restart is needed based on these observations.
+| Area | Result | Evidence |
+|---|---|---|
+| HDD format and `/data` | PASS | accepted owner result; live ext4 rw, 916 GB, 870 GB free |
+| fstab and mount durability | PASS | UUID entry, `nofail`, exact-UUID `ExecStartPre` |
+| Docker/Compose/Ansible | PASS | installed; Docker CE 29.9.3, Compose v2 |
+| Docker data-root | PASS | `/data/docker/engine`, `RequiresMountsFor=/data`, `live-restore=true` |
+| SSH / Tailscale / Docker services | PASS | active + enabled |
+| Node Exporter | PASS | `127.0.0.1:9100` HTTP 200, non-root, loopback only |
+| Time sync / DNS / timers | PASS | timesyncd synchronized; resolved works; 17 timers |
+| `/data/acash` | PASS (reserved) | `root:root 0700`, empty |
+| 24/7 firewall | **OPEN** | UFW disabled; SSH on all interfaces |
+| Closed-lid survival | **OPEN** | logind default suspend |
+| Off-device backup | **BLOCKED** | no destination; `/data/backups` is same-HDD |
+| Reboot survival | NOT TESTED | requires physical recovery access |
+| External Exit Node egress | NOT TESTED | no authorized client observation |
+| Independent uplink | BLOCKED | iPad hotspot only |
 
-Prepared service-only finish action: verify the actual new mount UUID/data-root/fstab and versions; inspect the running pinned non-root exporter and effective runtime limits; compare the exact reviewed source profile; probe metrics in the known container network namespace with owner-root nsenter. Only if internal metrics are healthy, host metrics fail, network is internal and the old profile hash is exact may the helper perform ONE container-only recreation using the approved candidate. Unknown state/drift fails closed.
+## Interpretation
 
-Candidate networking explicitly shares the host network namespace and binds the exporter process to 127.0.0.1:9100. This removes reliance on internal-bridge port publication; it also removes network-egress isolation, a documented tradeoff for this stateless metrics process. UID 65534, no capabilities, no-new-privileges, read-only root, /proc and /sys read-only, no Docker socket/root-filesystem bind, 64 MiB/0.25 CPU/64 PIDs remain. No public listener is accepted. No credentials or private application data are attached. Runtime host binding, metrics, limits, versions and SSH/Tailscale are checked; a non-loopback service is stopped.
+The host layer is ready for a separately managed ACASH workload ([PI_HOST_READY_FOR_ACASH.md](PI_HOST_READY_FOR_ACASH.md)). It is not yet "production 24/7" until the owner hardening action runs and reboot/lid/uplink behavior is demonstrated.
 
-No disk, partition, fstab, ownership or package mutation is in the finish helper. The old profile/result and new finish attempt/result are separate. Do not clear markers or retry a failed finish blindly. The root finish has NOT run; source tests and staged hashes do not prove successful runtime repair.
+The historical monitoring failure, its diagnosis and the accepted service-only repair remain documented in [monitoring-failure-20261105.json](evidence/monitoring-failure-20261105.json), [monitoring-finish-preparation-20261105.json](evidence/monitoring-finish-preparation-20261105.json) and [STORAGE_RECOVERY_REPORT.md](STORAGE_RECOVERY_REPORT.md). Nothing was reformatted, reinstalled or rolled back.
 
-Next: one current owner command in OWNER_DECISION_PACKET.md. Remaining acceptance: successful finish, a fresh external SSH connection, actual client Exit Node egress, reboot survival only with a recovery path, off-disk backup/restore and independent home uplink before travel. Same-disk /data/backups is not independent protection. ACASH remains reserved storage only, no trading/data/broker deployment.
+## Next actions
+
+1. Owner runs `Invoke-OwnerHostReady.ps1` from [OWNER_DECISION_PACKET.md](OWNER_DECISION_PACKET.md).
+2. Reboot with physical access, then re-verify services and closed-lid behaviour.
+3. Choose an off-device backup destination.
+4. Deploy ACASH from the ACASH repository, not this one.

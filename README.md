@@ -1,6 +1,6 @@
-# Current status — storage passed, monitoring finish pending
+# Current status - host ready for ACASH, 24/7 hardening pending
 
-Actual owner execution formatted the approved HDD and mounted /data; Docker/Compose/Ansible are installed. **Do not run the formatter again.** Monitoring HTTP failed and a service-only diagnosis/conditional repair is prepared. See [current finish command](docs/recovery/OWNER_DECISION_PACKET.md) and [actual report](docs/recovery/HOMELAB_RECOVERY_REPORT.md). Overall PARTIAL; source tests and historical COMPLETED badges are not runtime/travel acceptance.
+Storage, Docker data-root and Node Exporter are verified PASS from a live host audit. The host layer is ready for a separately deployed ACASH workload. **Do not run the formatter or monitoring-finish packet again.** Remaining blockers: UFW disabled, lid-close suspend, no off-device backup, iPad-hotspot-only uplink. See [host contract](docs/recovery/PI_HOST_READY_FOR_ACASH.md), [owner action](docs/recovery/OWNER_DECISION_PACKET.md) and [actual report](docs/recovery/HOMELAB_RECOVERY_REPORT.md). Source tests are not runtime or travel acceptance.
 
 # 🏛️ Enterprise HomeLab & AI Cloud Infrastructure Monorepo
 

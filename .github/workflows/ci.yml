@@ -42,3 +42,4 @@ jobs:
           docker compose -f docker/compose.yaml config --quiet --no-interpolate
           docker compose -f docker/compose.minimal.yaml config --quiet
           bash -n scripts/recovery/provision_foundation.sh
+          bash -n scripts/recovery/finalize_host_24x7.sh
